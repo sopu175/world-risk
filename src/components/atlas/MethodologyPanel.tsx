@@ -73,7 +73,7 @@ export function MethodologyPanel() {
                   ["NASA EONET v3", "documented events: wildfire, flood, cyclone, drought, landslide, volcano", "Public domain (NASA)", "https://eonet.gsfc.nasa.gov/api/v3"],
                   ["Open-Meteo (ERA5 / CAMS / GeoNames)", "heat profile, PM2.5, geocoding", "CC-BY 4.0", "https://open-meteo.com/en/license"],
                   ["OpenStreetMap Nominatim", "reverse geocoding", "ODbL 1.0", "https://www.openstreetmap.org/copyright"],
-                  ["CARTO + OpenStreetMap", "basemap tiles", "Attribution required", "https://carto.com/attributions"],
+                  ["OpenFreeMap + OpenMapTiles + OpenStreetMap", "neutral basemap (Positron / dark)", "Free, no key — © OpenStreetMap contributors", "https://openfreemap.org/"],
                 ].map(([name, use, license, url]) => (
                   <tr key={name} className="border-t">
                     <td className="px-3 py-2 font-medium">
@@ -108,9 +108,9 @@ export function MethodologyPanel() {
             <li>Every import is schema-validated (Zod server-side); invalid records are counted and reported, never silently dropped or patched over.</li>
             <li>Records are deduplicated on provider-native IDs; only genuinely new or revised rows are written.</li>
             <li>Each run is audited (records fetched/inserted/updated/skipped/invalid, dataset version, duration, errors).</li>
-            <li>Sources auto-disable after 5 consecutive failed imports; administrators can re-enable. Failed imports never overwrite valid existing data.</li>
+            <li>Failed imports never overwrite valid existing data. Sources pause themselves after 5 consecutive failures (visible as an \"unavailable\" state with the reason) and resume automatically once the upstream recovers.</li>
             <li>Outbound requests are HTTPS-only and restricted to the documented source allow-list (SSRF protection).</li>
-            <li>User-submitted corrections flow into an admin review queue — nothing is silently edited.</li>
+            <li>User-submitted corrections are queued for review by data stewards — nothing is silently edited.</li>
           </ul>
         </section>
 

@@ -5,7 +5,7 @@
 import { create } from "zustand";
 import type { EventDTO } from "@/lib/types";
 
-export type ViewMode = "map" | "events" | "admin" | "about";
+export type ViewMode = "map" | "events" | "about";
 
 export type SelectedLocation = {
   latitude: number;
@@ -23,7 +23,6 @@ type AtlasState = {
   selectedEvent: EventDTO | null;
   activeLayers: string[];
   flyTarget: FlyTarget | null;
-  adminToken: string;
   sessionId: string;
 
   setView: (v: ViewMode) => void;
@@ -35,7 +34,6 @@ type AtlasState = {
   setActiveLayers: (keys: string[]) => void;
   flyTo: (lat: number, lng: number, zoom?: number) => void;
   clearFly: () => void;
-  setAdminToken: (t: string) => void;
 };
 
 function getSessionId(): string {
@@ -54,7 +52,6 @@ export const useAtlas = create<AtlasState>((set, get) => ({
   selectedEvent: null,
   activeLayers: ["earthquake"],
   flyTarget: null,
-  adminToken: typeof window !== "undefined" ? window.sessionStorage.getItem("wra-admin-token") ?? "" : "",
   sessionId: typeof window !== "undefined" ? getSessionId() : "ssr",
 
   setView: (v) => set({ view: v }),
@@ -69,8 +66,4 @@ export const useAtlas = create<AtlasState>((set, get) => ({
   setActiveLayers: (keys) => set({ activeLayers: keys }),
   flyTo: (lat, lng, zoom = 6) => set({ flyTarget: { lat, lng, zoom, nonce: Date.now() } }),
   clearFly: () => set({ flyTarget: null }),
-  setAdminToken: (t) => {
-    if (typeof window !== "undefined") window.sessionStorage.setItem("wra-admin-token", t);
-    set({ adminToken: t });
-  },
 }));

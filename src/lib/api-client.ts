@@ -12,7 +12,6 @@ import {
   apiErrorSchema,
 } from "@/lib/validation";
 import type {
-  AdminOverviewDTO,
   EventsSummaryDTO,
   GeoSearchResult,
   LayerDTO,
@@ -67,10 +66,6 @@ async function api<T>(path: string, schema: z.ZodType<T>, init?: RequestInit): P
     throw new ApiError(`Response contract mismatch for ${path}`, "contract_error", res.status);
   }
   return parsed.data.data as T;
-}
-
-function adminHeaders(token: string): Record<string, string> {
-  return token ? { "x-admin-token": token } : {};
 }
 
 // ---------------------------------------------------------------------------
@@ -131,82 +126,6 @@ export const compareRowSchema = z.object({
   maxMag10y: z.number().nullable(),
 });
 
-export const adminOverviewSchema = z.object({
-  stats: z.object({
-    observations: z.number(),
-    events: z.number(),
-    openCorrections: z.number(),
-    totalCorrections: z.number(),
-    sourcesActive: z.number(),
-    sourcesNeedsConfig: z.number(),
-  }),
-  sources: z.array(
-    z.object({
-      key: z.string(),
-      name: z.string(),
-      provider: z.string(),
-      homepageUrl: z.string(),
-      licenseName: z.string(),
-      licenseUrl: z.string(),
-      endpointUrl: z.string(),
-      accessMode: z.string(),
-      cadenceHours: z.number(),
-      requiresApiKeyEnv: z.string().nullable(),
-      apiKeyPresent: z.boolean(),
-      enabled: z.boolean(),
-      status: z.string(),
-      statusReason: z.string().nullable(),
-      lastSuccessAt: z.string().nullable(),
-      lastAttemptAt: z.string().nullable(),
-      consecutiveFailures: z.number(),
-      notes: z.string().nullable(),
-      observationCount: z.number(),
-      eventCount: z.number(),
-    }),
-  ),
-  runs: z.array(
-    z.object({
-      id: z.string(),
-      sourceKey: z.string(),
-      sourceName: z.string(),
-      status: z.string(),
-      trigger: z.string(),
-      attempt: z.number(),
-      recordsFetched: z.number(),
-      recordsInserted: z.number(),
-      recordsUpdated: z.number(),
-      recordsSkipped: z.number(),
-      recordsInvalid: z.number(),
-      datasetVersion: z.string().nullable(),
-      errorMessage: z.string().nullable(),
-      durationMs: z.number().nullable(),
-      startedAt: z.string(),
-      finishedAt: z.string().nullable(),
-    }),
-  ),
-  coverage: z.object({
-    byLayer: z.array(z.object({ layerKey: z.string(), count: z.number(), lastAt: z.string().nullable() })),
-    eventsByType: z.array(z.object({ eventType: z.string(), count: z.number(), lastAt: z.string().nullable() })),
-  }),
-  corrections: z.array(
-    z.object({
-      id: z.string(),
-      targetType: z.string(),
-      targetId: z.string().nullable(),
-      targetLabel: z.string().nullable(),
-      field: z.string().nullable(),
-      proposedValue: z.string().nullable(),
-      message: z.string(),
-      submitterEmail: z.string().nullable(),
-      status: z.string(),
-      adminNote: z.string().nullable(),
-      createdAt: z.string(),
-      resolvedAt: z.string().nullable(),
-    }),
-  ),
-  adminAuthMode: z.enum(["token", "open"]),
-});
-
 export const eventsSummarySchema = z.object({
   total: z.number(),
   activeCount: z.number(),
@@ -227,20 +146,6 @@ export const searchResultSchema = z.object({
   population: z.number().nullable(),
   timezone: z.string().nullable(),
   featureCode: z.string().nullable(),
-});
-
-export const ingestOutcomeSchema = z.object({
-  sourceKey: z.string(),
-  runId: z.string().nullable(),
-  status: z.string(),
-  reason: z.string().nullable(),
-  recordsFetched: z.number().optional(),
-  recordsInserted: z.number().optional(),
-  recordsUpdated: z.number().optional(),
-  recordsSkipped: z.number().optional(),
-  recordsInvalid: z.number().optional(),
-  datasetVersion: z.string().nullable().optional(),
-  durationMs: z.number().nullable().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -320,34 +225,6 @@ export async function submitCorrection(body: {
     "/api/corrections",
     z.object({ id: z.string(), status: z.string(), createdAt: z.string(), message: z.string() }),
     { method: "POST", body: JSON.stringify(body) },
-  );
-}
-
-export async function fetchAdminOverview(token: string): Promise<AdminOverviewDTO> {
-  return api("/api/admin/overview", adminOverviewSchema, { headers: adminHeaders(token) });
-}
-
-export async function patchAdminSource(token: string, body: { key: string; enabled?: boolean; notes?: string }) {
-  return api(
-    "/api/admin/sources",
-    z.object({ key: z.string(), enabled: z.boolean(), status: z.string(), statusReason: z.string().nullable() }),
-    { method: "PATCH", headers: adminHeaders(token), body: JSON.stringify(body) },
-  );
-}
-
-export async function runAdminIngest(token: string, body: { sources?: string[]; trigger?: string }) {
-  return api("/api/admin/ingest", z.object({ outcomes: z.array(ingestOutcomeSchema) }), {
-    method: "POST",
-    headers: adminHeaders(token),
-    body: JSON.stringify(body),
-  });
-}
-
-export async function patchAdminCorrection(token: string, body: { id: string; status: string; adminNote?: string }) {
-  return api(
-    "/api/admin/corrections",
-    z.object({ id: z.string(), status: z.string(), adminNote: z.string().nullable() }),
-    { method: "PATCH", headers: adminHeaders(token), body: JSON.stringify(body) },
   );
 }
 

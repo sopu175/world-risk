@@ -5,14 +5,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Globe2, Layers3, Map as MapIcon, ScrollText, Moon, Settings2, Sun, Radio } from "lucide-react";
+import { Globe2, Layers3, Map as MapIcon, ScrollText, Moon, Sun, Radio } from "lucide-react";
 import { fetchLayers, fetchObservations, fetchEvents, runBootstrap } from "@/lib/api-client";
 import { useAtlas } from "@/lib/store";
 import { MapView } from "@/components/atlas/MapView";
 import { LayerPanel } from "@/components/atlas/LayerPanel";
 import { LocationPanel } from "@/components/atlas/LocationPanel";
 import { EventsPanel, EventDetailSheet } from "@/components/atlas/EventsPanel";
-import { AdminPanel } from "@/components/atlas/AdminPanel";
 import { MethodologyPanel } from "@/components/atlas/MethodologyPanel";
 import { Sheet as UiSheet, SheetContent as UiSheetContent } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -70,8 +69,7 @@ export function AtlasShell() {
         <nav className="ml-4 hidden items-center gap-1 md:flex" aria-label="Main navigation">
           <NavButton active={view === "map"} onClick={() => setView("map")} icon={<MapIcon className="h-3.5 w-3.5" />} label="Map" />
           <NavButton active={view === "events"} onClick={() => setView("events")} icon={<Radio className="h-3.5 w-3.5" />} label="Events" />
-          <NavButton active={view === "about"} onClick={() => setView("about")} icon={<ScrollText className="h-3.5 w-3.5" />} label="Methodology" />
-          <NavButton active={view === "admin"} onClick={() => setView("admin")} icon={<Settings2 className="h-3.5 w-3.5" />} label="Admin" />
+          <NavButton active={view === "about"} onClick={() => setView("about")} icon={<ScrollText className="h-3.5 w-3.5" />} label="Data & Sources" />
         </nav>
 
         <div className="ml-auto flex items-center gap-1.5">
@@ -153,10 +151,6 @@ export function AtlasShell() {
               </div>
             </div>
           </div>
-        ) : view === "admin" ? (
-          <div className="h-full overflow-y-auto">
-            <AdminPanel />
-          </div>
         ) : (
           <div className="h-full">
             <MethodologyPanel />
@@ -167,14 +161,14 @@ export function AtlasShell() {
       {/* ------------------------------------------------------------- footer */}
       <footer className="shrink-0 border-t bg-background">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-[10.5px] leading-none text-muted-foreground">
-          <span className="font-medium text-foreground/70">Sources:</span>
+          <span className="font-medium text-foreground/70">Open data:</span>
           <a className="hover:text-foreground hover:underline" href="https://earthquake.usgs.gov/earthquakes/feed/" target="_blank" rel="noopener noreferrer">USGS (public domain)</a>
           <span aria-hidden>·</span>
           <a className="hover:text-foreground hover:underline" href="https://eonet.gsfc.nasa.gov/api/v3" target="_blank" rel="noopener noreferrer">NASA EONET (public domain)</a>
           <span aria-hidden>·</span>
           <a className="hover:text-foreground hover:underline" href="https://open-meteo.com/en/license" target="_blank" rel="noopener noreferrer">Open-Meteo ERA5/CAMS (CC-BY 4.0)</a>
           <span aria-hidden>·</span>
-          <a className="hover:text-foreground hover:underline" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors © CARTO</a>
+          <a className="hover:text-foreground hover:underline" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors · OpenFreeMap</a>
           <span className="ml-auto hidden sm:inline">
             Area-level indicators — never street-level safety advice. <button className="underline hover:text-foreground" onClick={() => setView("about")}>Read methodology</button>
           </span>
@@ -210,7 +204,6 @@ function MobileNav() {
       <NavButton active={view === "map"} onClick={() => setView("map")} icon={<MapIcon className="h-4 w-4" />} label="" />
       <NavButton active={view === "events"} onClick={() => setView("events")} icon={<Radio className="h-4 w-4" />} label="" />
       <NavButton active={view === "about"} onClick={() => setView("about")} icon={<ScrollText className="h-4 w-4" />} label="" />
-      <NavButton active={view === "admin"} onClick={() => setView("admin")} icon={<Settings2 className="h-4 w-4" />} label="" />
     </div>
   );
 }
