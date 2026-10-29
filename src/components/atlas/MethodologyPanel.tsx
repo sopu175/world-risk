@@ -71,8 +71,9 @@ export function MethodologyPanel() {
                 {[
                   ["U.S. Geological Survey — Earthquake Hazards Program", "earthquake layer, location seismic history", "Public domain (U.S. Government)", "https://www.usgs.gov/information-policies-and-instructions"],
                   ["NASA EONET v3 (event feed + category archives)", "documented events: wildfire, flood, cyclone, volcano (5-year category archive)", "Public domain (NASA)", "https://eonet.gsfc.nasa.gov/api/v3"],
+                  ["Open-Meteo Weather Forecast (ECMWF IFS / NOAA GFS)", "wind & gusts layer — global wind-speed grid", "CC-BY 4.0", "https://open-meteo.com/en/docs"],
                   ["Open-Meteo Marine (ECMWF WAM)", "ocean waves — significant wave height grid", "CC-BY 4.0", "https://open-meteo.com/en/docs/marine-weather-api"],
-                  ["Open-Meteo (ERA5 / CAMS / GeoNames)", "heat profile, PM2.5, geocoding", "CC-BY 4.0", "https://open-meteo.com/en/license"],
+                  ["Open-Meteo (ERA5 / CAMS / GeoNames)", "heat profile, wind climatology, PM2.5, geocoding", "CC-BY 4.0", "https://open-meteo.com/en/license"],
                   ["OpenStreetMap Nominatim", "reverse geocoding", "ODbL 1.0", "https://www.openstreetmap.org/copyright"],
                   ["OpenFreeMap + OpenMapTiles + OpenStreetMap", "neutral basemap (Positron / dark)", "Free, no key — © OpenStreetMap contributors", "https://openfreemap.org/"],
                 ].map(([name, use, license, url]) => (

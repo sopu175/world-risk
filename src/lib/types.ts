@@ -157,48 +157,6 @@ export type IngestionRunDTO = {
   finishedAt: string | null;
 };
 
-export type DataSourceDTO = {
-  key: string;
-  name: string;
-  provider: string;
-  homepageUrl: string;
-  licenseName: string;
-  licenseUrl: string;
-  endpointUrl: string;
-  accessMode: string;
-  cadenceHours: number;
-  requiresApiKeyEnv: string | null;
-  apiKeyPresent: boolean;
-  enabled: boolean;
-  status: string;
-  statusReason: string | null;
-  lastSuccessAt: string | null;
-  lastAttemptAt: string | null;
-  consecutiveFailures: number;
-  notes: string | null;
-  observationCount: number;
-  eventCount: number;
-};
-
-export type AdminOverviewDTO = {
-  stats: {
-    observations: number;
-    events: number;
-    openCorrections: number;
-    totalCorrections: number;
-    sourcesActive: number;
-    sourcesNeedsConfig: number;
-  };
-  sources: DataSourceDTO[];
-  runs: IngestionRunDTO[];
-  coverage: {
-    byLayer: { layerKey: string; count: number; lastAt: string | null }[];
-    eventsByType: { eventType: string; count: number; lastAt: string | null }[];
-  };
-  corrections: CorrectionDTO[];
-  adminAuthMode: "token" | "open";
-};
-
 export type CorrectionDTO = {
   id: string;
   targetType: string;
@@ -225,6 +183,7 @@ export const HAZARD_TYPES = [
   "air_quality",
   "volcano",
   "waves",
+  "wind",
 ] as const;
 
 export type RunStatus = "success" | "partial" | "failed";

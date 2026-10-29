@@ -37,6 +37,7 @@ import { ingestUsgsEarthquakes } from "@/lib/ingest/usgs-earthquakes";
 import { ingestNasaEonet } from "@/lib/ingest/nasa-eonet";
 import { ingestReliefwebDisasters } from "@/lib/ingest/reliefweb-disasters";
 import { ingestOpenMeteoMarine } from "@/lib/ingest/openmeteo-marine";
+import { ingestOpenMeteoWind } from "@/lib/ingest/openmeteo-wind";
 
 export const SOURCE_DEFS: SourceDef[] = [
   {
@@ -97,6 +98,21 @@ export const SOURCE_DEFS: SourceDef[] = [
     notes:
       "Free MAP_KEY registration required. Planned integration scope: per-map-viewport hotspot queries (global 24 h CSV exceeds ingestion limits). No hotspot data is loaded until the key is configured and the adapter is validated.",
     ingest: null, // adapter deliberately pending until key present
+  },
+  {
+    key: "openmeteo-wind",
+    name: "Open-Meteo Weather Forecast API (ECMWF IFS / NOAA GFS) — global wind grid",
+    provider: "Open-Meteo / ECMWF–NOAA",
+    homepageUrl: "https://open-meteo.com/en/docs",
+    licenseName: "CC-BY 4.0",
+    licenseUrl: "https://open-meteo.com/en/license",
+    endpointUrl: "https://api.open-meteo.com/v1/forecast",
+    accessMode: "bulk",
+    cadenceHours: 3,
+    requiresApiKeyEnv: null,
+    notes:
+      "Samples the current 10 m wind speed, gusts and direction on a fixed 10° grid (540 points, 60°S–80°N, land + ocean) to power the Wind & gusts map layer. Each grid point stores its latest value (upsert semantics — snapshot, not history).",
+    ingest: ingestOpenMeteoWind,
   },
   {
     key: "openmeteo-marine",

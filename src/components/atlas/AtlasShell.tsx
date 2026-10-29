@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { LayerPanel } from "@/components/atlas/LayerPanel";
 import { LocationPanel } from "@/components/atlas/LocationPanel";
 import { EventsPanel, EventDetailSheet } from "@/components/atlas/EventsPanel";
 import { MethodologyPanel } from "@/components/atlas/MethodologyPanel";
-import { Sheet as UiSheet, SheetContent as UiSheetContent } from "@/components/ui/sheet";
+import { Sheet as UiSheet, SheetContent as UiSheetContent, SheetTitle as UiSheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 export function AtlasShell() {
@@ -22,6 +22,14 @@ export function AtlasShell() {
   const qc = useQueryClient();
   const [layersDrawerOpen, setLayersDrawerOpen] = useState(false);
   const [bootstrapping, setBootstrapping] = useState(true);
+  // next-themes resolves the stored theme only on the client — gating the icon
+  // on mount keeps the server and first client render identical (no hydration
+  // mismatch when a theme preference is persisted).
+  const themeMounted = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
 
   // First-run bootstrap: idempotent; kicks the initial ingestion on a fresh DB.
   useEffect(() => {
@@ -111,7 +119,7 @@ export function AtlasShell() {
             onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
             aria-label="Toggle dark mode"
           >
-            {resolvedTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {themeMounted && resolvedTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
         </div>
       </header>
@@ -166,7 +174,7 @@ export function AtlasShell() {
           <span aria-hidden>·</span>
           <a className="hover:text-foreground hover:underline" href="https://eonet.gsfc.nasa.gov/api/v3" target="_blank" rel="noopener noreferrer">NASA EONET (public domain)</a>
           <span aria-hidden>·</span>
-          <a className="hover:text-foreground hover:underline" href="https://open-meteo.com/en/license" target="_blank" rel="noopener noreferrer">Open-Meteo ERA5/CAMS (CC-BY 4.0)</a>
+          <a className="hover:text-foreground hover:underline" href="https://open-meteo.com/en/license" target="_blank" rel="noopener noreferrer">Open-Meteo ERA5/CAMS/Forecast (CC-BY 4.0)</a>
           <span aria-hidden>·</span>
           <a className="hover:text-foreground hover:underline" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors · OpenFreeMap</a>
           <span className="ml-auto hidden sm:inline">
@@ -179,6 +187,9 @@ export function AtlasShell() {
       {selectedLocation && (
         <UiSheet open onOpenChange={(v) => !v && useAtlas.getState().clearLocation()}>
           <UiSheetContent side="right" className="w-full overflow-hidden p-0 sm:max-w-[440px]">
+            {/* Radix requires a DialogTitle inside the sheet — the visible header
+                lives in LocationPanel, so expose this one to screen readers only. */}
+            <UiSheetTitle className="sr-only">Location details</UiSheetTitle>
             <LocationPanel />
           </UiSheetContent>
         </UiSheet>

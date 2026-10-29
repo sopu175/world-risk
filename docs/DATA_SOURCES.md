@@ -3,14 +3,16 @@
 Every row of data in WorldRisk Atlas traces back to a registered source. The
 registry is seeded from `src/lib/ingest/sources.ts` (sandbox) /
 `console/components/ingest/SourceRegistry.php` (production backend) and is
-fully visible in the Admin → Sources view.
+documented user-facing in the app's **Data & Sources** page; the ingestion
+audit trail is public at `GET /api/ingest/runs`.
 
 | # | Source | Used for | Access | License | Attribution required |
 |---|--------|----------|--------|---------|----------------------|
 | 1 | USGS Earthquake Hazards Program — [feeds](https://earthquake.usgs.gov/earthquakes/feed/) & [FDSN API](https://earthquake.usgs.gov/fdsnws/event/1/) | earthquake map layer; 10-year location seismic history | bulk 3 h + on demand | **Public domain** (U.S. Government work) | Appreciated, not legally required — we cite USGS per policy |
 | 2 | [NASA EONET v3](https://eonet.gsfc.nasa.gov/api/v3) | documented events: wildfire, flood, cyclone/severe storm, drought, landslide, volcano | bulk 6 h | **Public domain** (NASA) | "NASA EONET" + original agency (JTWC, DFO, GVP…) |
-| 3 | [Open-Meteo ERA5 Archive](https://open-meteo.com/en/docs/historical-weather-api) (ECMWF ERA5 via Copernicus C3S) | extreme-heat indicator (hot days/yr, climatology, trend) | on demand | **CC-BY 4.0** | "Open-Meteo / Copernicus ERA5" |
+| 3 | [Open-Meteo ERA5 Archive](https://open-meteo.com/en/docs/historical-weather-api) (ECMWF ERA5 via Copernicus C3S) | extreme-heat indicator (hot days/yr, climatology, trend); wind climatology (annual max wind, strong-wind days) | on demand | **CC-BY 4.0** | "Open-Meteo / Copernicus ERA5" |
 | 3b | [Open-Meteo Marine API](https://open-meteo.com/en/docs/marine-weather-api) (ECMWF WAM) | **Ocean waves layer** — significant wave height, 10° global ocean grid (468 sample points, land cells skipped), Douglas sea-state labels | bulk 6 h (upsert snapshot) | **CC-BY 4.0** | "Open-Meteo / ECMWF WAM" |
+| 3c | [Open-Meteo Weather Forecast API](https://open-meteo.com/en/docs) (ECMWF IFS / NOAA GFS) | **Wind & gusts layer** — 10 m wind speed, gusts, direction, 10° global grid (540 sample points, 60°S–80°N, land + ocean), Beaufort labels; current wind in location views | bulk 3 h (upsert snapshot) | **CC-BY 4.0** | "Open-Meteo / ECMWF–NOAA" |
 | 4 | [Open-Meteo Air Quality](https://open-meteo.com/en/docs/air-quality-api) (CAMS) | PM2.5 indicator | on demand | **CC-BY 4.0** | "Open-Meteo / CAMS" |
 | 5 | [Open-Meteo Geocoding](https://open-meteo.com/en/docs/geocoding-api) (GeoNames) | location search | on demand | **CC-BY 4.0** (GeoNames data) | "Open-Meteo / GeoNames" |
 | 6 | [OSM Nominatim](https://nominatim.openstreetmap.org/) | reverse geocoding (map-click naming) | on demand, **≤1 req/s**, 24 h cache per OSMF policy | **ODbL 1.0** © OpenStreetMap contributors | Required |

@@ -111,6 +111,26 @@ export const openMeteoAirQualitySchema = z.object({
   }),
 });
 
+/** Open-Meteo Weather Forecast API — multi-point wind grid (one element per requested coordinate). */
+export const openMeteoWindGridPointSchema = z.object({
+  latitude: z.number(),
+  longitude: z.number(),
+  elevation: z.number().nullable().optional(),
+  hourly: z
+    .object({
+      time: z.array(z.string()),
+      wind_speed_10m: z.array(z.number().nullable()),
+      wind_gusts_10m: z.array(z.number().nullable()),
+      wind_direction_10m: z.array(z.number().nullable()),
+    })
+    .optional(),
+});
+
+export const openMeteoWindGridSchema = z.union([
+  z.array(openMeteoWindGridPointSchema),
+  openMeteoWindGridPointSchema,
+]);
+
 /** ReliefWeb v2 disasters (enabled only with an approved appname).
  *  Shape is deliberately permissive — the source cannot be schema-verified
  *  without credentials, so unknown fields are tolerated and required fields
@@ -200,21 +220,10 @@ export const correctionBodySchema = z.object({
   submitterEmail: z.union([z.string().email().max(160), z.literal("")]).optional(),
 });
 
-export const adminSourcePatchSchema = z.object({
-  key: z.string().min(1),
-  enabled: z.boolean().optional(),
-  notes: z.string().max(500).optional(),
-});
-
-export const adminIngestBodySchema = z.object({
+/** Body for the scheduled ingest trigger endpoint (POST /api/ingest/run). */
+export const ingestRunBodySchema = z.object({
   sources: z.array(z.string()).max(20).optional(),
   trigger: z.enum(["manual", "scheduled", "bootstrap"]).default("manual"),
-});
-
-export const adminCorrectionPatchSchema = z.object({
-  id: z.string().min(1),
-  status: z.enum(["open", "resolved", "rejected"]),
-  adminNote: z.string().max(500).optional(),
 });
 
 export const savedLocationBodySchema = z.object({

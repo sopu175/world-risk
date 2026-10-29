@@ -5,10 +5,11 @@
 **A free, open-source map of environmental hazards and documented disaster
 events — built only on real, cited data.**
 
-Explore earthquakes, wildfires, floods, tropical cyclones, droughts,
-landslides and volcanic activity on a live global map, inspect any location's
-seismic history, extreme-heat profile and air quality, and read the
-methodology, license and limitations behind every number.
+Explore earthquakes, wind & gusts, ocean waves, wildfires, floods, tropical
+cyclones, droughts, landslides and volcanic activity on a live global map,
+inspect any location's seismic history, extreme-heat profile, wind
+climatology and air quality, and read the methodology, license and
+limitations behind every number.
 
 *No fabricated risk scores · no invented events · no arbitrary red/green zones.*
 
@@ -21,8 +22,8 @@ methodology, license and limitations behind every number.
 | | |
 |---|---|
 | 🗺️ **Interactive global map** | MapLibre GL with a neutral Positron/dark vector basemap, magnitude-scaled earthquake circles, halos on active events, rich popups, "tap anywhere to inspect", responsive to 390 px |
-| 🧭 **Location intelligence** | Search any city/region/coordinate → seismic history (M ≥ 4.5 within 300 km, 10 y), extreme-heat profile (hot days/yr since 1995 with decadal trend), PM2.5 (72 h), nearby documented events, reference-city comparison — each with source, license and limitations |
-| 🗂️ **Hazard layers** | 9 layers with per-layer methodology, units, resolution, temporal coverage and license. A layer is only shown as **live** once its source is configured *and* a validated import exists — otherwise it says exactly why it is unavailable |
+| 🧭 **Location intelligence** | Search any city/region/coordinate → seismic history (M ≥ 4.5 within 300 km, 10 y), extreme-heat profile (hot days/yr since 1995 with decadal trend), wind climatology (annual max wind, strong-wind days, live conditions), PM2.5 (72 h), nearby documented events, reference-city comparison — each with source, license and limitations |
+| 🗂️ **Hazard layers** | 11 layers with per-layer methodology, units, resolution, temporal coverage and license. A layer is only shown as **live** once its source is configured *and* a validated import exists — otherwise it says exactly why it is unavailable |
 | 📰 **Disaster events** | Documented events (separate from hazard observations): title, type, dates, severity *only when the source reports it*, original source link, verification status (`source_reported` / `cross_verified`) |
 | 🔄 **Automatic data pipeline** | Self-scheduling in-app ingestion: schema-validated, deduplicated on provider IDs, upsert-only (failed imports never overwrite valid data), full per-run audit trail, retries with jittered backoff, auto-pause after repeated failures, auto-resume |
 | 🧪 **Honesty by design** | Missing/uncertain data is *labelled*, never filled in. Country-level data never claims street-level safety. |
@@ -37,7 +38,8 @@ registered source; attribution is shown in the app (footer, location panels,
 |---|---|---|---|
 | **U.S. Geological Survey** — Earthquake Hazards Program | earthquake layer (M2.5+ 30-day feed), 10-year seismic history (FDSN API) | Public domain (U.S. Government work) | <https://earthquake.usgs.gov> |
 | **NASA EONET v3** — Earth Observatory Natural Event Tracker | documented wildfire / flood / cyclone events + 5-year volcano category archive (222 events) | Public domain (NASA) | <https://eonet.gsfc.nasa.gov/api/v3> |
-| **Open-Meteo** — ERA5 Historical Archive (Copernicus C3S / ECMWF) | extreme-heat profile (daily Tmax, hot days/yr, climatology, trend) | CC-BY 4.0 | <https://open-meteo.com/en/docs/historical-weather-api> |
+| **Open-Meteo** — Weather Forecast API (ECMWF IFS / NOAA GFS) | Wind & gusts layer — 10 m wind speed, gusts and direction on a fixed 10° global grid (540 sample points, refreshed every 3 h) | CC-BY 4.0 | <https://open-meteo.com/en/docs> |
+| **Open-Meteo** — ERA5 Historical Archive (Copernicus C3S / ECMWF) | extreme-heat profile (daily Tmax, hot days/yr, climatology, trend) and wind climatology (annual max wind, strong-wind days) | CC-BY 4.0 | <https://open-meteo.com/en/docs/historical-weather-api> |
 | **Open-Meteo** — Air Quality (Copernicus **CAMS**) | PM2.5 indicator (72 h) | CC-BY 4.0 | <https://open-meteo.com/en/docs/air-quality-api> |
 | **Open-Meteo** — Geocoding (GeoNames) | location search | CC-BY 4.0 (GeoNames data) | <https://open-meteo.com/en/docs/geocoding-api> |
 | **Open-Meteo** — Marine API (ECMWF WAM) | Ocean waves layer — significant wave height on a 10° global ocean grid (468 sample points) | CC-BY 4.0 | <https://open-meteo.com/en/docs/marine-weather-api> |
@@ -88,20 +90,20 @@ Within a minute the map is fully live.
 
 | Mechanism | Detail |
 |---|---|
-| **In-app scheduler** (default) | Started by `src/instrumentation.ts` on server boot. Every 15 min it imports each bulk source whose cadence window has elapsed (USGS every 3 h, EONET every 6 h). Disable with `INGEST_SCHEDULER=0`. |
-| **Standalone worker** (alternative) | `python3 workers/ingest-worker.py` — stdlib-only poller that calls the ingest API on a fixed interval (`INGEST_INTERVAL_MIN`, `ADMIN_TOKEN` aware). |
-| **Cron** (production) | `POST /api/admin/ingest` (or `php yii ingest/run` for the Yii2 backend) on your own schedule. |
+| **In-app scheduler** (default) | Started by `src/instrumentation.ts` on server boot. Every 15 min it imports each bulk source whose cadence window has elapsed (USGS every 3 h, wind grid every 3 h, EONET/marine every 6 h). Disable with `INGEST_SCHEDULER=0`. |
+| **Standalone worker** (alternative) | `python3 workers/ingest-worker.py` — stdlib-only poller that calls `POST /api/ingest/run` on a fixed interval (`INGEST_INTERVAL_MIN`, `ADMIN_TOKEN` aware). |
+| **Cron** (production) | `POST /api/ingest/run` (or `php yii ingest/run` for the Yii2 backend) on your own schedule. |
 
-Every import is auditable: `GET /api/admin/runs` returns the full history
-(fetched / inserted / updated / skipped / invalid counts, dataset version,
-duration, errors).
+Every import is auditable: `GET /api/ingest/runs` returns the full public
+history (fetched / inserted / updated / skipped / invalid counts, dataset
+version, duration, errors).
 
 ## 🧱 Architecture
 
 ```
 ┌────────────────────────── Next.js 16 (App Router, TS) ──────────────────────────┐
 │  UI: MapLibre GL map · layer panel · location panels · Recharts · shadcn/ui     │
-│  API: /api/layers /observations /events /locations /corrections /admin/ingest   │
+│  API: /api/layers /observations /events /locations /corrections /ingest/run   │
 │       ↕ Zod-validated contracts on BOTH sides                                   │
 │  Ingestion: source registry → SSRF-guarded fetch → schema validation →          │
 │             dedup (provider IDs) → upsert → audit trail → auto-pause/resume     │

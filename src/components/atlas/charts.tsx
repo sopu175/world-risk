@@ -8,6 +8,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  ComposedChart,
   Line,
   LineChart,
   ReferenceLine,
@@ -100,6 +101,44 @@ export function PM25Chart({
         <ReferenceLine y={whoGuideline} stroke="#ca8a04" strokeDasharray="4 4" label={{ value: "WHO 24h guideline", fontSize: 10, fill: "#ca8a04", position: "insideTopRight" }} />
         <Area type="monotone" dataKey="pm25" stroke="#4d7c0f" fill="#4d7c0f" fillOpacity={0.15} strokeWidth={2} />
       </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function AnnualMaxWindChart({
+  data,
+  strongWindThresholdKmh,
+}: {
+  data: { year: number; maxWindKmh: number | null; maxGustKmh: number | null; strongWindDays: number }[];
+  strongWindThresholdKmh: number;
+}) {
+  const series = data.map((d) => ({
+    ...d,
+    maxWindKmh: d.maxWindKmh ?? 0,
+    maxGustKmh: d.maxGustKmh ?? null,
+  }));
+  const mean = series.length ? series.reduce((s, r) => s + r.maxWindKmh, 0) / series.length : 0;
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <ComposedChart data={series} margin={{ top: 8, right: 12, bottom: 0, left: -18 }}>
+        <CartesianGrid stroke={GRID} strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="year" tick={AXIS} tickLine={false} axisLine={{ stroke: GRID }} interval="preserveStartEnd" />
+        <YAxis tick={AXIS} tickLine={false} axisLine={false} unit=" km/h" width={64} />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          formatter={(v: number | string, name) =>
+            name === "maxWindKmh"
+              ? [`${v} km/h`, "max daily wind"]
+              : [`${v} km/h`, "max daily gust"]
+          }
+        />
+        <ReferenceLine y={strongWindThresholdKmh} stroke="#dc2626" strokeDasharray="4 4" label={{ value: "Beaufort 6", fontSize: 10, fill: "#dc2626", position: "insideTopRight" }} />
+        <Bar dataKey="maxWindKmh" fill="#059669" radius={[3, 3, 0, 0]} />
+        {series.some((r) => r.maxGustKmh !== null) && (
+          <Line type="monotone" dataKey="maxGustKmh" stroke="#7e22ce" strokeWidth={1.5} dot={false} activeDot={{ r: 3 }} />
+        )}
+        <ReferenceLine y={mean} stroke="#78716c" strokeDasharray="4 4" label={{ value: "period mean", fontSize: 10, fill: "#78716c", position: "insideTopRight" }} />
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }

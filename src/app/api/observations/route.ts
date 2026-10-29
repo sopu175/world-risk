@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 // Layers stored as quantitative point observations. Other hazards are
 // event-backed (see /api/events) or location-level only.
-const OBSERVATION_LAYERS = new Set(["earthquake", "waves"]);
+const OBSERVATION_LAYERS = new Set(["earthquake", "waves", "wind"]);
 
 export async function GET(req: Request) {
   try {

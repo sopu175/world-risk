@@ -55,3 +55,31 @@ export const openMeteoForecastSchema = z.object({
     })
     .optional(),
 });
+
+/** Open-Meteo Weather Forecast API — current wind + 48 h gust series. */
+export const openMeteoWindForecastSchema = z.object({
+  current: z
+    .object({
+      time: z.string().optional(),
+      wind_speed_10m: z.number().nullable().optional(),
+      wind_gusts_10m: z.number().nullable().optional(),
+      wind_direction_10m: z.number().nullable().optional(),
+    })
+    .optional(),
+  hourly: z
+    .object({
+      time: z.array(z.string()),
+      wind_speed_10m: z.array(z.number().nullable()),
+      wind_gusts_10m: z.array(z.number().nullable()),
+    })
+    .optional(),
+});
+
+/** Open-Meteo ERA5 archive — daily max wind speed & gusts. */
+export const openMeteoArchiveWindSchema = z.object({
+  daily: z.object({
+    time: z.array(z.string()),
+    wind_speed_10m_max: z.array(z.number().nullable()),
+    wind_gusts_10m_max: z.array(z.number().nullable()),
+  }),
+});

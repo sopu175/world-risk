@@ -23,10 +23,12 @@ import {
   openMeteoGeocodeResponseSchema,
   nominatimReverseSchema,
   openMeteoForecastSchema,
+  openMeteoWindForecastSchema,
+  openMeteoArchiveWindSchema,
 } from "@/lib/validation-extra";
 import { TtlCache } from "@/lib/cache";
 import { haversineKm, round, formatCoord } from "@/lib/geo";
-import { pm25Category } from "@/lib/hazard-meta";
+import { pm25Category, beaufortOf, compassOf } from "@/lib/hazard-meta";
 import type {
   GeoSearchResult,
   IndicatorDTO,
@@ -44,6 +46,7 @@ const forecastCache = new TtlCache<ForecastInfo>(30 * 60_000, 1000);
 const quakeHistoryCache = new TtlCache<QuakeHistory>(12 * 3600_000, 300);
 const heatCache = new TtlCache<HeatIndicator>(24 * 3600_000, 200);
 const airCache = new TtlCache<AirIndicator>(30 * 60_000, 500);
+const windCache = new TtlCache<WindIndicator>(12 * 3600_000, 300);
 
 type ReverseInfo = {
   name: string | null;
@@ -83,6 +86,26 @@ type AirIndicator = {
   category: { label: string; color: string } | null;
   hourly: { time: string; pm25: number | null }[];
   hoursCovered: number;
+};
+
+type WindIndicator = {
+  current: {
+    speedKmh: number;
+    gustKmh: number | null;
+    dirDeg: number | null;
+    dirCompass: string | null;
+    beaufortB: number;
+    beaufortName: string;
+  } | null;
+  next48hPeakGustKmh: number | null;
+  strongWindThresholdKmh: number;
+  baselineAnnualMaxWindKmh: number;
+  recentAnnualMaxWindKmh: number | null;
+  baselineStrongWindDaysPerYear: number;
+  recentStrongWindDaysPerYear: number | null;
+  coverageStart: number;
+  coverageEnd: number;
+  annualSeries: { year: number; maxWindKmh: number | null; maxGustKmh: number | null; strongWindDays: number }[];
 };
 
 // ---------------------------------------------------------------------------
@@ -136,10 +159,11 @@ export async function buildLocationDetail(input: {
   const country = input.country?.trim() || reverse?.country || null;
   const countryCode = input.countryCode?.trim() || reverse?.countryCode || null;
 
-  const [quakeIndicator, heatIndicator, airIndicator, nearbyEvents] = await Promise.all([
+  const [quakeIndicator, heatIndicator, airIndicator, windIndicator, nearbyEvents] = await Promise.all([
     buildQuakeIndicator(latitude, longitude),
     buildHeatIndicator(latitude, longitude),
     buildAirIndicator(latitude, longitude),
+    buildWindIndicator(latitude, longitude),
     findNearbyEvents(latitude, longitude, 300, 365, 25),
   ]);
 
@@ -156,7 +180,7 @@ export async function buildLocationDetail(input: {
       population: null,
       localTime: forecast?.localtime ?? null,
     },
-    indicators: [quakeIndicator, heatIndicator, airIndicator],
+    indicators: [quakeIndicator, heatIndicator, airIndicator, windIndicator],
     nearbyEvents,
     disclaimers: [
       "Indicators are area-level estimates (reanalysis or model grid cells, 25–40 km; seismic catalog within 300 km). They describe the surrounding area, not any specific address or plot.",
@@ -443,6 +467,141 @@ async function buildAirIndicator(lat: number, lng: number): Promise<IndicatorDTO
 function airSummary(a: AirIndicator): string {
   const mean = a.pm25Last24hMean !== null ? `${a.pm25Last24hMean} µg/m³ (24 h mean)` : "no data";
   return `PM2.5 ${mean}${a.category ? ` — ${a.category.label}` : ""}`;
+}
+
+async function buildWindIndicator(lat: number, lng: number): Promise<IndicatorDTO> {
+  const source = await sourceRef("openmeteo-wind", "Open-Meteo Weather Forecast API", "https://open-meteo.com/en/docs");
+  const meta = {
+    key: "wind",
+    name: "Wind conditions & climatology (ERA5 + forecast models)",
+    unavailableReason: null,
+    source,
+    methodology:
+      "Current wind, gusts and direction from the Open-Meteo Weather Forecast API (ECMWF IFS / NOAA GFS blend). Climatology (annual maxima, strong-wind days) from daily ERA5 reanalysis maxima 1995–present via Open-Meteo. Strong-wind threshold: daily max wind ≥ 39 km/h (Beaufort 6). Current year excluded until complete.",
+    limitations:
+      "Model output, not station measurements — local terrain effects (channelling, gap winds) are not resolved. ERA5 grid ≈ 25–31 km. Forecast values change with each model run.",
+  };
+
+  try {
+    const cell = `${round(lat, 1)},${round(lng, 1)}`;
+    const cached = windCache.get(cell);
+    if (cached) {
+      return { ...meta, available: true, valueSummary: windSummary(cached), data: cached };
+    }
+
+    const end = new Date(Date.now() - 6 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+
+    // Current conditions + 48 h gust forecast (independent failure allowed)
+    // and the 30-year ERA5 daily-max series (required for availability).
+    let forecastPayload: unknown = null;
+    let forecastOk = false;
+    try {
+      forecastPayload = await fetchJsonSafe<unknown>(
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}` +
+          `&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m&hourly=wind_speed_10m,wind_gusts_10m` +
+          `&forecast_days=2&timezone=GMT`,
+        { timeoutMs: 20_000, retries: 6, retryDelayMs: 500 },
+      );
+      const p = openMeteoWindForecastSchema.safeParse(forecastPayload);
+      if (!p.success) throw new Error("Open-Meteo wind forecast failed schema validation");
+      forecastOk = true;
+    } catch {
+      // A transient forecast outage still yields a valid climatology below —
+      // but the result is NOT cached, so the next request retries live data.
+      forecastOk = false;
+    }
+
+    const archiveRes = await fetchJsonSafe<unknown>(
+      `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lng}` +
+        `&start_date=1995-01-01&end_date=${end}&daily=wind_speed_10m_max,wind_gusts_10m_max&timezone=GMT`,
+      { timeoutMs: 40_000, maxBytes: 10 * 1024 * 1024 },
+    );
+    const archive = openMeteoArchiveWindSchema.parse(archiveRes);
+
+    const { time, wind_speed_10m_max: wmax, wind_gusts_10m_max: gmax } = archive.daily;
+    const currentYear = new Date().getUTCFullYear();
+
+    const perYear = new Map<number, { maxWind: number | null; maxGust: number | null; strongDays: number }>();
+    for (let i = 0; i < time.length; i++) {
+      const w = wmax[i];
+      if (w === null) continue;
+      const d = new Date(time[i] + "T00:00:00Z");
+      const y = d.getUTCFullYear();
+      if (y >= currentYear) continue; // exclude incomplete current year
+      const agg = perYear.get(y) ?? { maxWind: null, maxGust: null, strongDays: 0 };
+      agg.maxWind = agg.maxWind === null ? w : Math.max(agg.maxWind, w);
+      const g = gmax[i];
+      if (g !== null) agg.maxGust = agg.maxGust === null ? g : Math.max(agg.maxGust, g);
+      if (w >= 39) agg.strongDays += 1; // Beaufort 6
+      perYear.set(y, agg);
+    }
+
+    const years = [...perYear.keys()].sort((a, b) => a - b);
+    if (years.length < 10) throw new Error("Insufficient complete years in ERA5 wind series");
+
+    const annualSeries = years.map((y) => {
+      const agg = perYear.get(y)!;
+      return {
+        year: y,
+        maxWindKmh: agg.maxWind === null ? null : round(agg.maxWind, 1),
+        maxGustKmh: agg.maxGust === null ? null : round(agg.maxGust, 1),
+        strongWindDays: agg.strongDays,
+      };
+    });
+
+    const meanOf = (nums: number[]) => (nums.length ? nums.reduce((s, v) => s + v, 0) / nums.length : 0);
+    const baselineMax = meanOf(annualSeries.map((r) => r.maxWindKmh ?? 0));
+    const last5 = annualSeries.slice(-5);
+    const recentMax = last5.length ? meanOf(last5.map((r) => r.maxWindKmh ?? 0)) : null;
+    const baselineStrong = meanOf(annualSeries.map((r) => r.strongWindDays));
+    const recentStrong = last5.length ? meanOf(last5.map((r) => r.strongWindDays)) : null;
+
+    // Current conditions — optional: a forecast outage still yields a valid climatology.
+    let current: WindIndicator["current"] = null;
+    let next48hPeakGustKmh: number | null = null;
+    if (forecastOk) {
+      const fc = openMeteoWindForecastSchema.parse(forecastPayload);
+      if (fc.current?.wind_speed_10m != null) {
+        const b = beaufortOf(fc.current.wind_speed_10m);
+        current = {
+          speedKmh: round(fc.current.wind_speed_10m, 1),
+          gustKmh: fc.current.wind_gusts_10m ?? null,
+          dirDeg: fc.current.wind_direction_10m ?? null,
+          dirCompass: compassOf(fc.current.wind_direction_10m ?? null),
+          beaufortB: b.b,
+          beaufortName: b.name,
+        };
+      }
+      const gusts = (fc.hourly?.wind_gusts_10m ?? []).filter((v): v is number => v !== null);
+      if (gusts.length) next48hPeakGustKmh = round(Math.max(...gusts), 0);
+    }
+
+    const wind: WindIndicator = {
+      current,
+      next48hPeakGustKmh,
+      strongWindThresholdKmh: 39,
+      baselineAnnualMaxWindKmh: round(baselineMax, 1),
+      recentAnnualMaxWindKmh: recentMax === null ? null : round(recentMax, 1),
+      baselineStrongWindDaysPerYear: round(baselineStrong, 1),
+      recentStrongWindDaysPerYear: recentStrong === null ? null : round(recentStrong, 1),
+      coverageStart: years[0],
+      coverageEnd: years[years.length - 1],
+      annualSeries,
+    };
+    // Cache only when live conditions succeeded — a forecast outage must not
+    // poison the cache for 12 h.
+    if (forecastOk) windCache.set(cell, wind);
+    return { ...meta, available: true, valueSummary: windSummary(wind), data: wind };
+  } catch (err) {
+    return { ...meta, available: false, unavailableReason: reasonOf(err), valueSummary: null, data: null };
+  }
+}
+
+function windSummary(w: WindIndicator): string {
+  const now = w.current
+    ? `${w.current.speedKmh} km/h (B${w.current.beaufortB} ${w.current.beaufortName})${w.current.gustKmh !== null ? `, gusts ${Math.round(w.current.gustKmh)} km/h` : ""}`
+    : "current conditions unavailable";
+  return `Wind now ${now} — annual max wind averages ${w.baselineAnnualMaxWindKmh} km/h (${w.coverageStart}–${w.coverageEnd})`;
 }
 
 async function findNearbyEvents(

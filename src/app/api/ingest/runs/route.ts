@@ -1,13 +1,14 @@
 import { db } from "@/lib/db";
 import { ok, fail } from "@/lib/api-utils";
-import { checkAdminAuth } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Public, read-only ingestion audit trail — part of the project's
+ * transparency promise: every import (fetched / inserted / updated / skipped /
+ * invalid counts, dataset version, duration, errors) is inspectable here.
+ */
 export async function GET(req: Request) {
-  const auth = checkAdminAuth(req);
-  if (!auth.ok) return fail("unauthorized", auth.reason ?? "Unauthorized", 401);
-
   try {
     const url = new URL(req.url);
     const limit = Math.min(200, Math.max(1, Number(url.searchParams.get("limit") ?? 50) || 50));

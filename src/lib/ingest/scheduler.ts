@@ -15,7 +15,7 @@
 //
 // Operators who prefer external orchestration can disable this with
 // INGEST_SCHEDULER=0 and run workers/ingest-worker.py (same contract) or a
-// cron hitting POST /api/admin/ingest instead.
+// cron hitting POST /api/ingest/run instead.
 
 import { db } from "@/lib/db";
 import { ensureSeed } from "@/lib/ingest/bootstrap";

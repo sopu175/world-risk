@@ -78,6 +78,33 @@ const WAVE_COLOR: unknown = [
   "#134e4a",
 ];
 
+// Wind speed (km/h) — Beaufort-ordered ramp: light green → red → violet.
+const WIND_COLOR: unknown = [
+  "interpolate",
+  ["linear"],
+  ["get", "val"],
+  2,
+  "#86b57f",
+  12,
+  "#65a30d",
+  20,
+  "#ca8a04",
+  29,
+  "#ea580c",
+  39,
+  "#dc2626",
+  50,
+  "#991b1b",
+  62,
+  "#7e22ce",
+  75,
+  "#6b21a8",
+  89,
+  "#581c87",
+  103,
+  "#3b0764",
+];
+
 const EVENT_LAYERS = ["flood", "cyclone", "drought", "wildfire", "landslide", "volcano"];
 
 function eqToGeojson(obs: ObservationDTO[]): GeoJSON.FeatureCollection<GeoJSON.Point> {
@@ -112,6 +139,25 @@ function wavesToGeojson(obs: ObservationDTO[]): GeoJSON.FeatureCollection<GeoJSO
         properties: {
           extId: o.externalId,
           val: o.value ?? 0,
+          severity: o.severityLabel ?? "",
+          occurredAt: o.occurredAt,
+        },
+      })),
+  };
+}
+
+function windToGeojson(obs: ObservationDTO[]): GeoJSON.FeatureCollection<GeoJSON.Point> {
+  return {
+    type: "FeatureCollection",
+    features: obs
+      .filter((o) => o.layerKey === "wind" && o.value !== null)
+      .map((o) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [o.lng, o.lat] },
+        properties: {
+          extId: o.externalId,
+          val: o.value ?? 0,
+          unit: o.unit ?? "km/h",
           severity: o.severityLabel ?? "",
           occurredAt: o.occurredAt,
         },
@@ -212,6 +258,7 @@ export function MapView({
         ensureDataLayers(map);
         pushEq(map, propsRef.current.observations);
         pushWaves(map, propsRef.current.observations);
+        pushWind(map, propsRef.current.observations);
         pushEvents(map, propsRef.current.events);
         applyVisibility(map, propsRef.current.activeLayers);
       });
@@ -245,6 +292,7 @@ export function MapView({
     if (!map || !ready) return;
     pushEq(map, observations);
     pushWaves(map, observations);
+    pushWind(map, observations);
   }, [observations, ready]);
 
   useEffect(() => {
@@ -274,6 +322,9 @@ export function MapView({
     }
     if (!map.getSource("waves-src")) {
       map.addSource("waves-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    }
+    if (!map.getSource("wind-src")) {
+      map.addSource("wind-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
     }
     if (!map.getSource("events-src")) {
       map.addSource("events-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
@@ -319,6 +370,28 @@ export function MapView({
           "circle-stroke-width": 1,
           "circle-stroke-color": "rgba(255,255,255,0.7)",
           "circle-opacity": 0.72,
+        },
+      });
+    }
+    if (!map.getLayer("wind-circles")) {
+      map.addLayer({
+        id: "wind-circles",
+        type: "circle",
+        source: "wind-src",
+        paint: {
+          "circle-color": WIND_COLOR as never,
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            0,
+            ["interpolate", ["linear"], ["get", "val"], 0, 2.5, 100, 6],
+            5,
+            ["interpolate", ["linear"], ["get", "val"], 0, 4.5, 100, 13],
+          ],
+          "circle-stroke-width": 1,
+          "circle-stroke-color": "rgba(255,255,255,0.7)",
+          "circle-opacity": 0.74,
         },
       });
     }
@@ -373,6 +446,12 @@ export function MapView({
       showWavePopup(map, e.lngLat.lng, e.lngLat.lat, p);
       return;
     }
+    const windFeatures = map.queryRenderedFeatures(e.point, { layers: ["wind-circles"] });
+    if (windFeatures.length > 0) {
+      const p = windFeatures[0].properties as Record<string, string | number>;
+      showWindPopup(map, e.lngLat.lng, e.lngLat.lat, p);
+      return;
+    }
     // Empty map click → inspect this location.
     popupRef.current?.remove();
     propsRef.current.onRequestLocation({
@@ -413,6 +492,25 @@ export function MapView({
         ${p.severity ? `<div class="wra-popup-meta">Sea state: ${escapeHtml(String(p.severity))} (Douglas scale)</div>` : ""}
         <div class="wra-popup-meta">${escapeHtml(formatCoord(lat, lng, 1))} · updated ${escapeHtml(formatDateSafe(new Date(Number.isFinite(+p.occurredAt) ? +p.occurredAt : (p.occurredAt as string))))}</div>
         <div class="wra-popup-meta">Grid sample of a ~25 km model — not a buoy reading</div>
+      </div>`;
+    popupRef.current = new maplibreglRef.Popup({ maxWidth: "270px", closeButton: true })
+      .setLngLat([lng, lat])
+      .setHTML(html)
+      .addTo(map);
+  }
+
+  function showWindPopup(map: MlMap, lng: number, lat: number, p: Record<string, string | number>) {
+    const maplibreglRef = mapLibreCtorRef.current;
+    if (!maplibreglRef) return;
+    popupRef.current?.remove();
+    const val = typeof p.val === "number" ? p.val : Number(p.val);
+    const html = `
+      <div class="wra-popup">
+        <div class="wra-popup-kicker">Wind &amp; gusts · ECMWF/GFS via Open-Meteo</div>
+        <div class="wra-popup-title">Wind ${escapeHtml(String(Number.isFinite(val) ? Math.round(val) : "—"))} km/h</div>
+        ${p.severity ? `<div class="wra-popup-meta">${escapeHtml(String(p.severity))} (Beaufort scale)</div>` : ""}
+        <div class="wra-popup-meta">${escapeHtml(formatCoord(lat, lng, 1))} · updated ${escapeHtml(formatDateSafe(new Date(Number.isFinite(+p.occurredAt) ? +p.occurredAt : (p.occurredAt as string))))}</div>
+        <div class="wra-popup-meta">Grid sample of an ~11 km model — not a station reading</div>
       </div>`;
     popupRef.current = new maplibreglRef.Popup({ maxWidth: "270px", closeButton: true })
       .setLngLat([lng, lat])
@@ -484,6 +582,11 @@ function pushWaves(map: MlMap, obs: ObservationDTO[]) {
   if (src) src.setData(wavesToGeojson(obs));
 }
 
+function pushWind(map: MlMap, obs: ObservationDTO[]) {
+  const src = map.getSource("wind-src") as GeoJSONSource | undefined;
+  if (src) src.setData(windToGeojson(obs));
+}
+
 function pushEvents(map: MlMap, events: EventDTO[]) {
   const src = map.getSource("events-src") as GeoJSONSource | undefined;
   if (src) src.setData(eventsToGeojson(events));
@@ -497,6 +600,10 @@ function applyVisibility(map: MlMap, activeLayers: string[]) {
   const wavesOn = activeLayers.includes("waves");
   if (map.getLayer("wave-circles")) {
     map.setLayoutProperty("wave-circles", "visibility", wavesOn ? "visible" : "none");
+  }
+  const windOn = activeLayers.includes("wind");
+  if (map.getLayer("wind-circles")) {
+    map.setLayoutProperty("wind-circles", "visibility", windOn ? "visible" : "none");
   }
   const activeEventTypes = EVENT_LAYERS.filter((t) => activeLayers.includes(t));
   const eventsOn = activeEventTypes.length > 0;

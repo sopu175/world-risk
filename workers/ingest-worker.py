@@ -3,12 +3,12 @@
 WorldRisk Atlas — scheduled ingestion worker.
 
 A minimal, dependency-free (stdlib only) scheduler that periodically triggers
-the platform's ingestion pipeline through the admin REST endpoint. All
-ingestion logic (schema validation, dedup, retries, audit logging, auto-disable)
-lives server-side; this worker only:
+the platform's ingestion pipeline through the public REST endpoint
+POST /api/ingest/run. All ingestion logic (schema validation, dedup, retries,
+audit logging, auto-disable) lives server-side; this worker only:
 
   1. polls on a fixed interval (default 60 min),
-  2. POSTs /api/admin/ingest with an optional ADMIN_TOKEN header,
+  2. POSTs /api/ingest/run with an optional ADMIN_TOKEN header,
   3. logs every outcome to stdout and a rotating log file,
   4. retries transient HTTP/network failures with exponential backoff.
 
@@ -72,7 +72,7 @@ def post_ingest() -> dict:
         payload["sources"] = SOURCES
     body = json.dumps(payload).encode()
     req = urllib.request.Request(
-        f"{BASE_URL}/api/admin/ingest",
+        f"{BASE_URL}/api/ingest/run",
         data=body,
         headers={"Content-Type": "application/json", **({"x-admin-token": ADMIN_TOKEN} if ADMIN_TOKEN else {})},
         method="POST",

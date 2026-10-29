@@ -24,7 +24,7 @@ import { toast } from "sonner";
 import { fetchLocationDetail, fetchLocationCompare, submitCorrection } from "@/lib/api-client";
 import { useAtlas } from "@/lib/store";
 import { MiniStat, TypeChip, VerificationBadge, InfoHint } from "@/components/atlas/ui-bits";
-import { HotDaysChart, ClimatologyChart, QuakesPerYearChart, PM25Chart } from "@/components/atlas/charts";
+import { HotDaysChart, ClimatologyChart, QuakesPerYearChart, PM25Chart, AnnualMaxWindChart } from "@/components/atlas/charts";
 import { formatCoord, formatDateSafe, haversineKm } from "@/lib/geo";
 
 // --------------------------------------------------------------- payload schemas
@@ -56,9 +56,39 @@ const airDataSchema = z.object({
   hoursCovered: z.number(),
 });
 
+const windDataSchema = z.object({
+  current: z
+    .object({
+      speedKmh: z.number(),
+      gustKmh: z.number().nullable(),
+      dirDeg: z.number().nullable(),
+      dirCompass: z.string().nullable(),
+      beaufortB: z.number(),
+      beaufortName: z.string(),
+    })
+    .nullable(),
+  next48hPeakGustKmh: z.number().nullable(),
+  strongWindThresholdKmh: z.number(),
+  baselineAnnualMaxWindKmh: z.number(),
+  recentAnnualMaxWindKmh: z.number().nullable(),
+  baselineStrongWindDaysPerYear: z.number(),
+  recentStrongWindDaysPerYear: z.number().nullable(),
+  coverageStart: z.number(),
+  coverageEnd: z.number(),
+  annualSeries: z.array(
+    z.object({
+      year: z.number(),
+      maxWindKmh: z.number().nullable(),
+      maxGustKmh: z.number().nullable(),
+      strongWindDays: z.number(),
+    }),
+  ),
+});
+
 type QuakeData = z.infer<typeof quakeDataSchema>;
 type HeatData = z.infer<typeof heatDataSchema>;
 type AirData = z.infer<typeof airDataSchema>;
+type WindData = z.infer<typeof windDataSchema>;
 
 function parseIndicator<T>(schema: z.ZodType<T>, data: unknown): T | null {
   const r = schema.safeParse(data);
@@ -115,7 +145,13 @@ export function LocationPanel() {
 
             {detailQ.data && (
               <>
-                <IndicatorOverview quake={detailQ.data.indicators.find((i) => i.key === "earthquake_history")} heat={detailQ.data.indicators.find((i) => i.key === "extreme_heat")} air={detailQ.data.indicators.find((i) => i.key === "air_quality")} />
+                <IndicatorOverview
+                  quake={detailQ.data.indicators.find((i) => i.key === "earthquake_history")}
+                  heat={detailQ.data.indicators.find((i) => i.key === "extreme_heat")}
+                  air={detailQ.data.indicators.find((i) => i.key === "air_quality")}
+                  wind={parseIndicator(windDataSchema, detailQ.data.indicators.find((i) => i.key === "wind")?.data)}
+                  windIndicator={detailQ.data.indicators.find((i) => i.key === "wind")}
+                />
 
                 <div className="flex gap-2">
                   <SaveLocationButton sessionId={sessionId} label={detailQ.data.location.name} latitude={loc.latitude} longitude={loc.longitude} countryName={detailQ.data.location.country ?? undefined} />
@@ -136,6 +172,7 @@ export function LocationPanel() {
                       quake={parseIndicator(quakeDataSchema, detailQ.data.indicators.find((i) => i.key === "earthquake_history")?.data)}
                       heat={parseIndicator(heatDataSchema, detailQ.data.indicators.find((i) => i.key === "extreme_heat")?.data)}
                       air={parseIndicator(airDataSchema, detailQ.data.indicators.find((i) => i.key === "air_quality")?.data)}
+                      wind={parseIndicator(windDataSchema, detailQ.data.indicators.find((i) => i.key === "wind")?.data)}
                     />
                   </TabsContent>
 
@@ -185,13 +222,24 @@ function IndicatorOverview({
   quake,
   heat,
   air,
+  wind,
+  windIndicator,
 }: {
   quake?: { available: boolean; valueSummary: string | null; unavailableReason: string | null };
   heat?: { available: boolean; valueSummary: string | null; unavailableReason: string | null };
   air?: { available: boolean; valueSummary: string | null; unavailableReason: string | null };
+  wind?: WindData;
+  windIndicator?: { available: boolean; valueSummary: string | null; unavailableReason: string | null };
 }) {
+  const windAvail = windIndicator?.available ?? false;
+  const windValue = wind?.current ? `${Math.round(wind.current.speedKmh)} km/h` : "—";
+  const windSub = wind?.current
+    ? `B${wind.current.beaufortB} ${wind.current.beaufortName}${wind.current.gustKmh !== null ? ` · gusts ${Math.round(wind.current.gustKmh)} km/h` : ""}`
+    : windAvail
+      ? `annual max ≈ ${wind?.baselineAnnualMaxWindKmh ?? "—"} km/h`
+      : "Wind model unavailable";
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       <MiniStat
         label="Quakes M≥4.5 / 10 y"
         value={quake?.available ? (quake.valueSummary?.split(" ")[0] ?? "—") : "—"}
@@ -207,17 +255,46 @@ function IndicatorOverview({
         value={air?.available ? `${air.valueSummary?.match(/PM2\.5 ([\d.]+)/)?.[1] ?? "—"} µg/m³` : "—"}
         sub={air?.available ? air.valueSummary?.split("— ")[1] ?? undefined : "CAMS unavailable"}
       />
+      <MiniStat label="Wind now" value={windAvail ? windValue : "—"} sub={windSub.slice(0, 44)} />
     </div>
   );
 }
 
 // ------------------------------------------------------------------- trends
-function TrendsSection({ quake, heat, air }: { quake: QuakeData | null; heat: HeatData | null; air: AirData | null }) {
-  if (!quake && !heat && !air) {
+function TrendsSection({
+  quake,
+  heat,
+  air,
+  wind,
+}: {
+  quake: QuakeData | null;
+  heat: HeatData | null;
+  air: AirData | null;
+  wind: WindData | null;
+}) {
+  if (!quake && !heat && !air && !wind) {
     return <InfoHint>Indicator series are unavailable right now — see the Sources tab for reasons.</InfoHint>;
   }
   return (
     <>
+      {wind && (
+        <section>
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Annual max wind (ERA5, {wind.coverageStart}–{wind.coverageEnd})
+          </h3>
+          <AnnualMaxWindChart data={wind.annualSeries} strongWindThresholdKmh={wind.strongWindThresholdKmh} />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Period mean {wind.baselineAnnualMaxWindKmh} km/h{wind.recentAnnualMaxWindKmh !== null ? `, last 5 years ${wind.recentAnnualMaxWindKmh} km/h` : ""}.
+            {" "}Strong-wind days (≥ {wind.strongWindThresholdKmh} km/h, Beaufort 6): {wind.baselineStrongWindDaysPerYear}/yr on average
+            {wind.recentStrongWindDaysPerYear !== null ? `, ${wind.recentStrongWindDaysPerYear}/yr in the last 5 years` : ""}.
+            {wind.current && (
+              <> Now: {wind.current.speedKmh} km/h (B{wind.current.beaufortB} {wind.current.beaufortName}){wind.current.gustKmh !== null ? `, gusts ${Math.round(wind.current.gustKmh)} km/h` : ""}{wind.current.dirCompass ? ` from ${wind.current.dirCompass}` : ""}.</>
+            )}
+            {wind.next48hPeakGustKmh !== null && <> Peak gust next 48 h: {wind.next48hPeakGustKmh} km/h.</>}
+          </p>
+        </section>
+      )}
+      <Separator />
       {heat && (
         <section>
           <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -522,8 +599,8 @@ function CorrectionDialog({
 function LocationSkeleton() {
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => (
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-[74px]" />
         ))}
       </div>

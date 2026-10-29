@@ -248,6 +248,38 @@ export const LAYER_DEFS: LayerDef[] = [
     sortOrder: 45,
   },
   {
+    key: "wind",
+    name: "Wind & gusts",
+    hazardType: "wind",
+    kind: "observation",
+    description:
+      "Near-surface wind speed and gusts across the globe — the same quantity Windy.com renders as its wind layer — sampled from the ECMWF/GFS forecast models on a fixed 10° grid.",
+    units: "wind speed & gusts (km/h); direction (°); Beaufort force",
+    methodology:
+      "Hourly wind_speed_10m, wind_gusts_10m and wind_direction_10m from the Open-Meteo Weather Forecast API (ECMWF IFS + NOAA GFS blend, CC-BY 4.0), sampled at a fixed 10° latitude/longitude grid (540 sample points, 60°S–80°N). The current-conditions snapshot is refreshed every 3 h; each grid point stores its latest value. Beaufort force labels are derived from wind speed per the Beaufort scale.",
+    resolution: "10° sample grid of an ~11 km native model (point samples, not a continuous wind field)",
+    temporalCoverage: "current conditions (refreshed every 3 h); 30-year wind climatology in location views",
+    licenseName: "CC-BY 4.0 (Open-Meteo / ECMWF–GFS)",
+    licenseUrl: "https://open-meteo.com/en/license",
+    limitations:
+      "Model output, not station measurements — a 10° grid cannot resolve terrain channelling, gap winds, thermally driven local winds or tropical-cyclone eyewall maxima. Point samples sit ~100–700 km apart; conditions between sample points differ. For a specific place use the location view, which queries the model directly at that coordinate.",
+    sourceKey: "openmeteo-wind",
+    colorHex: "#059669",
+    mapAvailable: true,
+    statusWhenNoData: "unavailable",
+    statusReasonNoData: "Waiting for the first validated wind-grid import.",
+    legend: [
+      { label: "< 12 km/h — light (B0–2)", color: "#86b57f", max: 12 },
+      { label: "12–19 km/h — gentle breeze (B3)", color: "#65a30d", min: 12, max: 20 },
+      { label: "20–28 km/h — moderate breeze (B4)", color: "#ca8a04", min: 20, max: 29 },
+      { label: "29–38 km/h — fresh breeze (B5)", color: "#ea580c", min: 29, max: 39 },
+      { label: "39–61 km/h — strong → near gale (B6–7)", color: "#dc2626", min: 39, max: 62 },
+      { label: "62–88 km/h — gale → strong gale (B8–9)", color: "#7e22ce", min: 62, max: 89 },
+      { label: "≥ 89 km/h — storm force (B10+)", color: "#581c87", min: 89 },
+    ],
+    sortOrder: 48,
+  },
+  {
     key: "waves",
     name: "Ocean waves",
     hazardType: "waves",
@@ -282,6 +314,38 @@ export const LAYER_DEFS: LayerDef[] = [
 ];
 
 export const LAYER_DEF_BY_KEY = new Map(LAYER_DEFS.map((l) => [l.key, l]));
+
+// ---------------------------------------------------------------------------
+// Beaufort wind scale — labels are derived only from the reported wind speed,
+// never asserted independently.
+// ---------------------------------------------------------------------------
+const BEAUFORT_BANDS: { maxKmh: number; b: number; name: string }[] = [
+  { maxKmh: 1, b: 0, name: "calm" },
+  { maxKmh: 5, b: 1, name: "light air" },
+  { maxKmh: 11, b: 2, name: "light breeze" },
+  { maxKmh: 19, b: 3, name: "gentle breeze" },
+  { maxKmh: 28, b: 4, name: "moderate breeze" },
+  { maxKmh: 38, b: 5, name: "fresh breeze" },
+  { maxKmh: 49, b: 6, name: "strong breeze" },
+  { maxKmh: 61, b: 7, name: "near gale" },
+  { maxKmh: 74, b: 8, name: "gale" },
+  { maxKmh: 88, b: 9, name: "strong gale" },
+  { maxKmh: 102, b: 10, name: "storm" },
+  { maxKmh: 117, b: 11, name: "violent storm" },
+  { maxKmh: Number.POSITIVE_INFINITY, b: 12, name: "hurricane force" },
+];
+
+export function beaufortOf(kmh: number): { b: number; name: string } {
+  if (!Number.isFinite(kmh) || kmh < 0) return { b: 0, name: "calm" };
+  return BEAUFORT_BANDS.find((band) => kmh <= band.maxKmh) ?? BEAUFORT_BANDS[BEAUFORT_BANDS.length - 1];
+}
+
+export function compassOf(deg: number | null | undefined): string | null {
+  if (deg == null || !Number.isFinite(deg)) return null;
+  const points = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+  const idx = Math.round((((deg % 360) + 360) % 360) / 22.5) % 16;
+  return points[idx];
+}
 
 export const PM25_CATEGORIES: { label: string; max: number; color: string }[] = [
   { label: "Good", max: 10, color: "#65a30d" },

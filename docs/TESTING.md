@@ -8,13 +8,14 @@ add when the constraint is lifted.
 
 | Area | Verification |
 | --- | --- |
-| Ingestion (USGS) | `POST /api/admin/ingest` → 1,936–1,942 features fetched, schema-validated, inserted; re-run proved dedup: `fetched=1937 inserted=2 updated=1 skipped=1934` |
+| Ingestion (USGS) | `POST /api/ingest/run` → 1,936–1,942 features fetched, schema-validated, inserted; re-run proved dedup: `fetched=1937 inserted=2 updated=1 skipped=1934` |
 | Ingestion (EONET) | 500 events (Polygon + Point geometries), cyclone severity labels, `cross_verified` flags; stale-module and coordinate-nesting bugs found & fixed during verification |
-| Audit trail | `GET /api/admin/runs` shows every attempt incl. the historical `failed`/`partial` runs with error messages |
-| Layer availability | `/api/layers` returns `live` (earthquake/wildfire/flood/cyclone), `unavailable` (drought/landslide — genuinely no current events), `location_level` (heat/air) |
+| Ingestion (wind grid) | `openmeteo-wind` adapter: 540-point 10° grid sampled in 14 batches; snapshot upsert semantics; refused-to-publish guard for partial grids |
+| Audit trail | `GET /api/ingest/runs` shows every attempt incl. the historical `failed`/`partial` runs with error messages |
+| Layer availability | `/api/layers` returns `live` (earthquake/wildfire/flood/cyclone/wind/waves), `unavailable` (drought/landslide — genuinely no current events), `location_level` (heat/air) |
 | Location detail (Tokyo, Mombasa, Nairobi) | reverse geocode (Nominatim), elevation/timezone, quake history (real M7.5 Noto 2024 event present), ERA5 heat profile (+168% Tokyo trend), CAMS PM2.5; per-indicator failure isolation verified |
 | Comparison | `/api/locations/compare` returns the 6 reference cities with same-methodology values |
-| Frontend golden paths | Browser-verified (agent-browser): map render + basemap tiles, 1,926 earthquake circles + active-cyclone halos, layer toggles/legends/popovers, search → location panel → charts/compare/sources, events list → Cyclone Arnab detail with source citation, admin (sources/runs/coverage), methodology, dark mode, 390 px mobile layout, zero hydration errors on fresh load |
+| Frontend golden paths | Browser-verified (agent-browser): map render + basemap tiles, 1,926 earthquake circles + active-cyclone halos, layer toggles/legends/popovers, search → location panel → charts/compare/sources, events list → Cyclone Arnab detail with source citation, methodology, dark mode, 390 px mobile layout, zero hydration errors on fresh load |
 | Resilience | Flaky sandbox egress (~1/3 dropped fresh connections) mitigated with jittered retries; all endpoints eventually 200 |
 
 ## Known limitations (reported honestly)
