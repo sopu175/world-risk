@@ -1,0 +1,206 @@
+// WorldRisk Atlas — data model
+//
+// Sandbox note: this schema targets SQLite (Prisma) because the build sandbox has
+// no PostgreSQL. The production deployment target is PostgreSQL 15 + PostGIS 3.
+// docs/schema-postgis.sql contains the equivalent PostGIS DDL with geometry
+// columns, GIST indexes and the same table/column semantics.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Data source registry — every row of data in the atlas must trace back here.
+// ---------------------------------------------------------------------------
+model DataSource {
+  id                  String    @id @default(cuid())
+  key                 String    @unique // "usgs-earthquakes", "nasa-eonet", ...
+  name                String
+  provider            String
+  homepageUrl         String
+  licenseName         String
+  licenseUrl          String
+  endpointUrl         String // fixed, allow-listed fetch target (SSRF guard)
+  accessMode          String    @default("bulk") // bulk | on_demand
+  cadenceHours        Int       @default(6)
+  requiresApiKeyEnv   String? // e.g. "FIRMS_MAP_KEY" — source is unusable until set
+  apiKeyPresent       Boolean   @default(false)
+  enabled             Boolean   @default(true)
+  status              String    @default("active") // active | needs_config | disabled | auto_disabled | failed
+  statusReason        String?
+  lastSuccessAt       DateTime?
+  lastAttemptAt       DateTime?
+  consecutiveFailures Int       @default(0)
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  runs         IngestionRun[]
+  observations HazardObservation[]
+  events       DisasterEvent[]
+}
+
+// ---------------------------------------------------------------------------
+// Hazard layers — the extensible layer system shown in the map UI.
+// A layer is only flagged available=true after a validated import exists.
+// ---------------------------------------------------------------------------
+model HazardLayer {
+  id              String   @id @default(cuid())
+  key             String   @unique // "earthquake", "flood", "extreme_heat", ...
+  name            String
+  hazardType      String // earthquake | flood | extreme_heat | cyclone | drought | wildfire | landslide | air_quality | volcano
+  kind            String // observation | event | model | projection
+  description     String
+  units           String?
+  methodology     String?
+  resolution      String?
+  temporalCoverage String?
+  licenseName     String?
+  licenseUrl      String?
+  limitations     String?
+  sourceKey       String? // feeding data source (when bulk-imported)
+  colorHex        String   @default("#57534e")
+  mapAvailable    Boolean  @default(false) // can be rendered as a map layer today
+  available       Boolean  @default(false) // validated imported data exists
+  sortOrder       Int      @default(100)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  observations HazardObservation[]
+}
+
+// ---------------------------------------------------------------------------
+// Hazard observations — quantitative, source-backed measurements (points).
+// ---------------------------------------------------------------------------
+model HazardObservation {
+  id            String    @id @default(cuid())
+  sourceId      String
+  layerId       String
+  externalId    String // provider-native id, used for dedup
+  lat           Float
+  lng           Float
+  magnitude     Float?
+  magnitudeType String?
+  depthKm       Float?
+  value         Float?
+  unit          String?
+  severityLabel String?
+  place         String?
+  countryCode   String?
+  occurredAt    DateTime
+  sourceUrl     String?
+  rawJson       String? // preserved original payload (trimmed)
+  ingestedAt    DateTime  @default(now())
+
+  source DataSource  @relation(fields: [sourceId], references: [id])
+  layer  HazardLayer @relation(fields: [layerId], references: [id])
+
+  @@unique([sourceId, externalId])
+  @@index([layerId, occurredAt])
+  @@index([lat, lng])
+}
+
+// ---------------------------------------------------------------------------
+// Disaster events — documented events, deliberately separate from hazard
+// observations. kind distinguishes historical | active | model | projection.
+// ---------------------------------------------------------------------------
+model DisasterEvent {
+  id                 String    @id @default(cuid())
+  sourceId           String
+  externalId         String
+  title              String
+  eventType          String // earthquake | flood | cyclone | drought | wildfire | landslide | volcano | other
+  kind               String    @default("historical") // historical | active | model | projection
+  lat                Float?
+  lng                Float?
+  placeName          String?
+  countryName        String?
+  countryCode        String?
+  startDate          DateTime?
+  endDate            DateTime?
+  severityLabel      String?
+  severityValue      Float?
+  severityUnit       String?
+  affectedCount      Int?
+  sourceName         String
+  sourceUrl          String?
+  sourcePublishedAt  DateTime?
+  verificationStatus String    @default("source_reported") // source_reported | cross_verified | unverified
+  summary            String?
+  ingestedAt         DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  source DataSource @relation(fields: [sourceId], references: [id])
+
+  @@unique([sourceId, externalId])
+  @@index([eventType, startDate])
+  @@index([kind])
+}
+
+// ---------------------------------------------------------------------------
+// Ingestion runs — full audit trail of every import attempt.
+// ---------------------------------------------------------------------------
+model IngestionRun {
+  id              String    @id @default(cuid())
+  sourceId        String
+  status          String // running | success | partial | failed
+  trigger         String    @default("manual") // manual | scheduled | bootstrap
+  attempt         Int       @default(1)
+  recordsFetched  Int       @default(0)
+  recordsInserted Int       @default(0)
+  recordsUpdated  Int       @default(0)
+  recordsSkipped  Int       @default(0)
+  recordsInvalid  Int       @default(0)
+  datasetVersion  String? // feed-generated timestamp / id
+  errorMessage    String?
+  durationMs      Int?
+  startedAt       DateTime  @default(now())
+  finishedAt      DateTime?
+
+  source DataSource @relation(fields: [sourceId], references: [id])
+
+  @@index([sourceId, startedAt])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// User-submitted corrections, reviewed in the admin dashboard.
+// ---------------------------------------------------------------------------
+model Correction {
+  id            String    @id @default(cuid())
+  targetType    String // event | observation | location
+  targetId      String?
+  targetLabel   String?
+  field         String?
+  proposedValue String?
+  message       String
+  submitterEmail String?
+  status        String    @default("open") // open | resolved | rejected
+  adminNote     String?
+  createdAt     DateTime  @default(now())
+  resolvedAt    DateTime?
+
+  @@index([status, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Saved locations — monetization-ready extension point (free tier MVP:
+// anonymous session-scoped saves; premium: sync + alerts, see docs/ROADMAP).
+// ---------------------------------------------------------------------------
+model SavedLocation {
+  id          String   @id @default(cuid())
+  sessionId   String
+  label       String
+  latitude    Float
+  longitude   Float
+  countryName String?
+  note        String?
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId])
+}
