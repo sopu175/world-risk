@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, MapPin, Info, Loader2, Waves, ChevronDown, ChevronRight, Sparkles, CheckCircle2 } from "lucide-react";
 import { fetchLayers, searchLocations } from "@/lib/api-client";
 import { useAtlas } from "@/lib/store";
+import { useTranslation } from "@/lib/i18n";
 import { StatusBadge, Freshness } from "@/components/atlas/ui-bits";
 import type { GeoSearchResult, LayerDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -17,11 +18,11 @@ import { cn } from "@/lib/utils";
 const COORD_RE = /^\s*(-?\d{1,2}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
 
 const QUICK_CITIES = [
-  { name: "Dhaka", country: "Bangladesh", lat: 23.702, lon: 90.374, flag: "🇧🇩" },
-  { name: "Bay of Bengal", country: "Ocean", lat: 18.5, lon: 88.5, flag: "🌊" },
-  { name: "Tokyo", country: "Japan", lat: 35.68, lon: 139.76, flag: "🇯🇵" },
-  { name: "San Francisco", country: "USA", lat: 37.77, lon: -122.42, flag: "🇺🇸" },
-  { name: "London", country: "UK", lat: 51.5, lon: -0.12, flag: "🇬🇧" },
+  { name: "Dhaka", bnName: "ঢাকা", country: "Bangladesh", lat: 23.702, lon: 90.374, flag: "🇧🇩" },
+  { name: "Bay of Bengal", bnName: "বঙ্গোপসাগর", country: "Ocean", lat: 18.5, lon: 88.5, flag: "🌊" },
+  { name: "Tokyo", bnName: "টোকিও", country: "Japan", lat: 35.68, lon: 139.76, flag: "🇯🇵" },
+  { name: "San Francisco", bnName: "সান ফ্রান্সিসকো", country: "USA", lat: 37.77, lon: -122.42, flag: "🇺🇸" },
+  { name: "London", bnName: "লন্ডন", country: "UK", lat: 51.5, lon: -0.12, flag: "🇬🇧" },
 ];
 
 export function LayerPanel({ onLocate }: { onLocate?: () => void }) {
@@ -29,6 +30,7 @@ export function LayerPanel({ onLocate }: { onLocate?: () => void }) {
   const [debounced, setDebounced] = useState("");
   const [showAdvancedFeeds, setShowAdvancedFeeds] = useState(false);
   const { activeLayers, toggleLayer, setLocation, flyTo, setView } = useAtlas();
+  const { t, isBn } = useTranslation();
 
   const mounted = useSyncExternalStore(
     () => () => undefined,
@@ -115,7 +117,7 @@ export function LayerPanel({ onLocate }: { onLocate?: () => void }) {
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search city, region or paste lat, lng…"
+          placeholder={t("searchPlaceholder")}
           className="pl-8 text-xs"
           aria-label="Search for a country, region, city or coordinate"
         />
@@ -133,7 +135,7 @@ export function LayerPanel({ onLocate }: { onLocate?: () => void }) {
                 >
                   <MapPin className="h-4 w-4 text-muted-foreground" />
                   <span className="font-mono">{coordMatch.latitude}, {coordMatch.longitude}</span>
-                  <span className="ml-auto text-[11px] text-muted-foreground">coordinates</span>
+                  <span className="ml-auto text-[11px] text-muted-foreground">{isBn ? "স্থানাঙ্ক" : "coordinates"}</span>
                 </button>
               )}
               {searchResults.map((r) => (
@@ -156,7 +158,7 @@ export function LayerPanel({ onLocate }: { onLocate?: () => void }) {
                 </button>
               ))}
               <div className="border-t px-3 py-1.5 text-[10px] text-muted-foreground">
-                Geocoding via Open-Meteo & GeoNames
+                {isBn ? "ওপেন-মেটিও ও জিওনেমস এর মাধ্যমে স্থান নির্ধারণ" : "Geocoding via Open-Meteo & GeoNames"}
               </div>
             </ScrollArea>
           </div>
@@ -165,7 +167,7 @@ export function LayerPanel({ onLocate }: { onLocate?: () => void }) {
 
       {/* ------------------------------------------------ Quick Jump Chips */}
       <div className="flex flex-wrap items-center gap-1">
-        <span className="text-[10px] font-medium text-muted-foreground">Jump:</span>
+        <span className="text-[10px] font-medium text-muted-foreground">{t("quickJump")}</span>
         {QUICK_CITIES.map((c) => (
           <button
             key={c.name}
@@ -173,7 +175,7 @@ export function LayerPanel({ onLocate }: { onLocate?: () => void }) {
             className="inline-flex items-center gap-1 rounded border bg-muted/40 px-1.5 py-0.5 text-[10.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <span>{c.flag}</span>
-            <span>{c.name}</span>
+            <span>{isBn ? c.bnName : c.name}</span>
           </button>
         ))}
       </div>
@@ -182,20 +184,22 @@ export function LayerPanel({ onLocate }: { onLocate?: () => void }) {
       <div className="rounded-lg border border-teal-500/30 bg-teal-500/10 p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-teal-500/20 text-teal-600 dark:text-teal-400">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-teal-500/20 text-teal-600">
               <Waves className="h-3.5 w-3.5 animate-pulse" />
             </span>
-            <span className="text-xs font-semibold text-foreground">Windy Live Animation</span>
+            <span className="text-xs font-semibold text-foreground">{t("navWindy")}</span>
           </div>
           <button
             onClick={() => setView("windy")}
             className="flex items-center gap-1 rounded bg-teal-600 px-2 py-0.5 text-[11px] font-medium text-white shadow-xs hover:bg-teal-500"
           >
-            Launch View →
+            {isBn ? "উইন্ডি খুলুন →" : "Launch View →"}
           </button>
         </div>
         <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
-          View continuous animated ocean swell waves, surface wind flow streams, and forecasts for Dhaka & the Bay of Bengal.
+          {isBn
+            ? "ঢাকা ও বঙ্গোপসাগরের জন্য অবিচ্ছিন্ন অ্যানিমেটেড সমুদ্র তরঙ্গ, পৃষ্ঠের বায়ুপ্রবাহ ও পূর্বাভাস দেখুন।"
+            : "View continuous animated ocean swell waves, surface wind flow streams, and forecasts for Dhaka & the Bay of Bengal."}
         </p>
       </div>
 
@@ -205,13 +209,15 @@ export function LayerPanel({ onLocate }: { onLocate?: () => void }) {
           <div className="flex items-center gap-1.5">
             <CheckCircle2 className="h-3 w-3 text-emerald-500" />
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Live Map Layers
+              {t("activeHazardLayers")}
             </h2>
           </div>
           {layersQ.isFetching && !layers.length && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
         </div>
         <p className="mt-0.5 text-[11px] text-muted-foreground">
-          Toggle verified real-time hazard layers directly on the map.
+          {isBn
+            ? "মানচিত্রে রিয়েল-টাইম দুর্যোগ স্তরসমূহ সরাসরি চালু বা বন্ধ করুন।"
+            : "Toggle verified real-time hazard layers directly on the map."}
         </p>
 
         {layersQ.isLoading && (

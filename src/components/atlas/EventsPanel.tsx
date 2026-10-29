@@ -15,6 +15,7 @@ import { Crosshair, ExternalLink, Flag, Search } from "lucide-react";
 import { toast } from "sonner";
 import { fetchEvents, fetchEventsSummary, submitCorrection } from "@/lib/api-client";
 import { useAtlas } from "@/lib/store";
+import { useTranslation } from "@/lib/i18n";
 import { TypeChip, VerificationBadge, Freshness } from "@/components/atlas/ui-bits";
 import { EVENT_TYPE_LABELS } from "@/lib/types";
 import { LAYER_COLOR_BY_EVENT_TYPE_FALLBACK } from "@/components/atlas/event-colors";
@@ -25,6 +26,7 @@ export function EventsPanel({ compact = false }: { compact?: boolean }) {
   const [kind, setKind] = useState("all");
   const [days, setDays] = useState(365);
   const [filter, setFilter] = useState("");
+  const { t, isBn } = useTranslation();
 
   const summaryQ = useQuery({ queryKey: ["events-summary"], queryFn: fetchEventsSummary, refetchInterval: 120_000 });
   const eventsQ = useQuery({
@@ -48,12 +50,12 @@ export function EventsPanel({ compact = false }: { compact?: boolean }) {
     <div className="flex h-full flex-col">
       <div className="space-y-3 border-b p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Documented disaster events</h2>
+          <h2 className="text-sm font-semibold">{t("documentedDisasters")}</h2>
           <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
             {summaryQ.data && (
               <>
-                <span className="tabular-nums">{summaryQ.data.total} total</span>
-                <span className="font-semibold text-red-600 dark:text-red-400">{summaryQ.data.activeCount} active</span>
+                <span className="tabular-nums">{summaryQ.data.total} {t("totalEvents")}</span>
+                <span className="font-semibold text-red-600">{summaryQ.data.activeCount} {t("activeEvents")}</span>
               </>
             )}
           </div>
@@ -80,7 +82,7 @@ export function EventsPanel({ compact = false }: { compact?: boolean }) {
         <div className="grid grid-cols-[1fr_auto] gap-2">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter by title or country…" className="pl-8" aria-label="Filter events by text" />
+            <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t("searchEventsPlaceholder")} className="pl-8" aria-label="Filter events by text" />
           </div>
           <Select value={String(days)} onValueChange={(v) => setDays(Number(v))}>
             <SelectTrigger size="sm" className="w-[110px]" aria-label="Time window"><SelectValue /></SelectTrigger>

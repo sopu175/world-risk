@@ -2,7 +2,6 @@
 
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
-import { useTheme } from "next-themes";
 import type {
   GeoJSONSource,
   Map as MlMap,
@@ -15,12 +14,8 @@ import type { FlyTarget, SelectedLocation } from "@/lib/store";
 
 // ---------------------------------------------------------------------------
 
-// Free, no-registration vector basemap (OpenFreeMap, funded by donations;
-// attribution: © OpenStreetMap contributors). Neutral Positron for light mode,
-// dark variant for dark mode — matches the "neutral map base" design brief.
-function styleUrl(dark: boolean): string {
-  return dark ? "https://tiles.openfreemap.org/styles/dark" : "https://tiles.openfreemap.org/styles/positron";
-}
+// Free, no-registration vector basemap (OpenFreeMap, neutral Positron style)
+const POSITRON_BASEMAP = "https://tiles.openfreemap.org/styles/positron";
 
 const EQ_COLOR: unknown = [
   "interpolate",
@@ -216,8 +211,6 @@ export function MapView({
   const popupRef = useRef<MlPopup | null>(null);
   const [ready, setReady] = useState(false);
   const [booting, setBooting] = useState(true);
-  const { resolvedTheme } = useTheme();
-  const dark = resolvedTheme === "dark";
 
   const propsRef = useRef({ observations, events, activeLayers, onSelectEvent, onRequestLocation });
   propsRef.current = { observations, events, activeLayers, onSelectEvent, onRequestLocation };
@@ -231,7 +224,7 @@ export function MapView({
 
       const map = new maplibregl.Map({
         container: containerRef.current,
-        style: styleUrl(dark),
+        style: POSITRON_BASEMAP,
         center: [12, 22],
         zoom: 1.5,
         minZoom: 1,
@@ -276,15 +269,6 @@ export function MapView({
       setReady(false);
     };
   }, []);
-
-  // ------------------------------------------------------------- theme swap
-  const darkRef = useRef(dark);
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !ready || darkRef.current === dark) return;
-    darkRef.current = dark;
-    map.setStyle(styleUrl(dark));
-  }, [dark, ready]);
 
   // ------------------------------------------------------------ data pushes
   useEffect(() => {

@@ -21,7 +21,13 @@ export const metadata: Metadata = {
   keywords: ["disaster risk", "hazard map", "earthquakes", "floods", "wildfires", "climate", "WorldRisk Atlas"],
   authors: [{ name: "WorldRisk Atlas" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/logo.svg", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
   },
   openGraph: {
     title: "WorldRisk Atlas",

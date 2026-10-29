@@ -18,7 +18,10 @@ export type SelectedLocation = {
 
 export type FlyTarget = { lat: number; lng: number; zoom?: number; nonce: number };
 
+export type Locale = "en" | "bn";
+
 type AtlasState = {
+  locale: Locale;
   view: ViewMode;
   selectedLocation: SelectedLocation | null;
   selectedEvent: EventDTO | null;
@@ -27,6 +30,7 @@ type AtlasState = {
   sessionId: string;
   windyOverlay: WindyOverlay;
 
+  setLocale: (l: Locale) => void;
   setView: (v: ViewMode) => void;
   setWindyOverlay: (overlay: WindyOverlay) => void;
   setLocation: (loc: SelectedLocation) => void;
@@ -39,6 +43,16 @@ type AtlasState = {
   clearFly: () => void;
 };
 
+function getInitialLocale(): Locale {
+  if (typeof window === "undefined") return "en";
+  try {
+    const saved = window.localStorage.getItem("wra-locale");
+    return saved === "bn" ? "bn" : "en";
+  } catch {
+    return "en";
+  }
+}
+
 function getSessionId(): string {
   if (typeof window === "undefined") return "ssr";
   let id = window.localStorage.getItem("wra-session-id");
@@ -50,6 +64,7 @@ function getSessionId(): string {
 }
 
 export const useAtlas = create<AtlasState>((set, get) => ({
+  locale: typeof window !== "undefined" ? getInitialLocale() : "en",
   view: "map",
   selectedLocation: null,
   selectedEvent: null,
@@ -58,6 +73,16 @@ export const useAtlas = create<AtlasState>((set, get) => ({
   sessionId: typeof window !== "undefined" ? getSessionId() : "ssr",
   windyOverlay: "waves",
 
+  setLocale: (l) => {
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem("wra-locale", l);
+      } catch {
+        // ignore
+      }
+    }
+    set({ locale: l });
+  },
   setView: (v) => set({ view: v }),
   setWindyOverlay: (overlay) => set({ windyOverlay: overlay }),
   setLocation: (loc) => set({ selectedLocation: loc, selectedEvent: null }),

@@ -23,6 +23,7 @@ import { X, Bookmark, Flag, AlertTriangle, ExternalLink, MapPin } from "lucide-r
 import { toast } from "sonner";
 import { fetchLocationDetail, fetchLocationCompare, submitCorrection } from "@/lib/api-client";
 import { useAtlas } from "@/lib/store";
+import { useTranslation } from "@/lib/i18n";
 import { MiniStat, TypeChip, VerificationBadge, InfoHint } from "@/components/atlas/ui-bits";
 import { HotDaysChart, ClimatologyChart, QuakesPerYearChart, PM25Chart, AnnualMaxWindChart } from "@/components/atlas/charts";
 import { formatCoord, formatDateSafe, haversineKm } from "@/lib/geo";
@@ -98,6 +99,7 @@ function parseIndicator<T>(schema: z.ZodType<T>, data: unknown): T | null {
 // --------------------------------------------------------------- component
 export function LocationPanel() {
   const { selectedLocation, clearLocation, sessionId } = useAtlas();
+  const { t, isBn } = useTranslation();
   const [correctionOpen, setCorrectionOpen] = useState(false);
 
   const detailQ = useQuery({
@@ -117,7 +119,7 @@ export function LocationPanel() {
         <div className="shrink-0 flex items-start gap-2 border-b bg-background p-4 z-10">
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-base font-semibold leading-tight">
-              {detailQ.data?.location.name ?? loc.name ?? "Selected location"}
+              {detailQ.data?.location.name ?? loc.name ?? (isBn ? "নির্বাচিত স্থান" : "Selected location")}
             </h2>
             <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
               {formatCoord(loc.latitude, loc.longitude)}
@@ -129,7 +131,7 @@ export function LocationPanel() {
               {detailQ.data?.location.localTime ? `local ${detailQ.data.location.localTime.slice(11, 16)}` : ""}
             </p>
           </div>
-          <Button variant="ghost" size="icon" onClick={clearLocation} aria-label="Close location panel">
+          <Button variant="ghost" size="icon" onClick={clearLocation} aria-label={t("closePanel")}>
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -138,7 +140,7 @@ export function LocationPanel() {
           <div className="space-y-4 p-4">
             {detailQ.isLoading && <LocationSkeleton />}
             {detailQ.isError && (
-              <p className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+              <p className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800">
                 Could not build the location profile: {(detailQ.error as Error).message}
               </p>
             )}
@@ -156,15 +158,15 @@ export function LocationPanel() {
                 <div className="flex gap-2">
                   <SaveLocationButton sessionId={sessionId} label={detailQ.data.location.name} latitude={loc.latitude} longitude={loc.longitude} countryName={detailQ.data.location.country ?? undefined} />
                   <Button variant="outline" size="sm" className="flex-1" onClick={() => setCorrectionOpen(true)}>
-                    <Flag className="mr-1.5 h-3.5 w-3.5" /> Report a data issue
+                    <Flag className="mr-1.5 h-3.5 w-3.5" /> {t("reportIssue")}
                   </Button>
                 </div>
 
                 <Tabs defaultValue="trends">
                   <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="trends">Trends</TabsTrigger>
-                    <TabsTrigger value="compare">Compare</TabsTrigger>
-                    <TabsTrigger value="sources">Sources</TabsTrigger>
+                    <TabsTrigger value="trends">{t("tabTrends")}</TabsTrigger>
+                    <TabsTrigger value="compare">{t("tabCompare")}</TabsTrigger>
+                    <TabsTrigger value="sources">{t("tabSources")}</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="trends" className="mt-3 space-y-5">
@@ -516,9 +518,10 @@ function SaveLocationButton({
     },
     onError: (e: Error) => toast.error(e.message),
   });
+  const { t } = useTranslation();
   return (
     <Button variant="outline" size="sm" className="flex-1" onClick={() => save.mutate()} disabled={save.isPending}>
-      <Bookmark className="mr-1.5 h-3.5 w-3.5" /> Save location
+      <Bookmark className="mr-1.5 h-3.5 w-3.5" /> {t("saveLocation")}
     </Button>
   );
 }

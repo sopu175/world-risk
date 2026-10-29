@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Waves, Wind, CloudRain, Thermometer, Cloud, Activity, ExternalLink, RefreshCw, Compass, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAtlas, type WindyOverlay } from "@/lib/store";
+import { useTranslation, type TranslationKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 interface RegionPreset {
-  name: string;
+  nameKey: TranslationKey;
+  defaultName: string;
   lat: number;
   lon: number;
   zoom: number;
@@ -15,25 +17,26 @@ interface RegionPreset {
 }
 
 const REGION_PRESETS: RegionPreset[] = [
-  { name: "Bangladesh & Bay of Bengal", lat: 23.702, lon: 90.374, zoom: 5, flag: "🇧🇩" },
-  { name: "Indian Ocean", lat: -4.0, lon: 77.0, zoom: 4, flag: "🌊" },
-  { name: "East Asia & Pacific", lat: 26.0, lon: 130.0, zoom: 4, flag: "🌏" },
-  { name: "Atlantic & Europe", lat: 42.0, lon: -20.0, zoom: 4, flag: "🌍" },
-  { name: "Americas & Caribbean", lat: 20.0, lon: -75.0, zoom: 5, flag: "🌎" },
+  { nameKey: "presetBangladesh", defaultName: "Bangladesh & Bay of Bengal", lat: 23.702, lon: 90.374, zoom: 5, flag: "🇧🇩" },
+  { nameKey: "presetIndianOcean", defaultName: "Indian Ocean", lat: -4.0, lon: 77.0, zoom: 4, flag: "🌊" },
+  { nameKey: "presetEastAsia", defaultName: "East Asia & Pacific", lat: 26.0, lon: 130.0, zoom: 4, flag: "🌏" },
+  { nameKey: "presetAtlantic", defaultName: "Atlantic & Europe", lat: 42.0, lon: -20.0, zoom: 4, flag: "🌍" },
+  { nameKey: "presetAmericas", defaultName: "Americas & Caribbean", lat: 20.0, lon: -75.0, zoom: 5, flag: "🌎" },
 ];
 
-const OVERLAYS: { id: WindyOverlay; label: string; icon: React.ReactNode; desc: string }[] = [
-  { id: "waves", label: "Waves & Swell", icon: <Waves className="h-3.5 w-3.5 text-teal-400" />, desc: "Significant wave height, swell waves, ocean periods (ECMWF WAM)" },
-  { id: "wind", label: "Wind Streams", icon: <Wind className="h-3.5 w-3.5 text-emerald-400" />, desc: "Surface 10m wind stream vectors & velocity (ECMWF IFS / GFS)" },
-  { id: "gust", label: "Wind Gusts", icon: <Compass className="h-3.5 w-3.5 text-amber-400" />, desc: "Peak wind gusts & localized atmospheric turbulence" },
-  { id: "rain", label: "Rain & Thunder", icon: <CloudRain className="h-3.5 w-3.5 text-blue-400" />, desc: "Precipitation accumulation, weather radar & thunderstorms" },
-  { id: "temp", label: "Temperature", icon: <Thermometer className="h-3.5 w-3.5 text-rose-400" />, desc: "Surface 2m atmospheric air temperature (°C)" },
-  { id: "clouds", label: "Clouds", icon: <Cloud className="h-3.5 w-3.5 text-slate-300" />, desc: "Cloud cover fraction and satellite infrared imagery" },
-  { id: "cams", label: "Air Quality (PM2.5)", icon: <Activity className="h-3.5 w-3.5 text-purple-400" />, desc: "Copernicus CAMS particulate matter (PM2.5) concentrations" },
+const OVERLAYS: { id: WindyOverlay; labelKey: TranslationKey; defaultLabel: string; icon: React.ReactNode; desc: string }[] = [
+  { id: "waves", labelKey: "overlayWaves", defaultLabel: "Waves & Swell", icon: <Waves className="h-3.5 w-3.5 text-teal-600" />, desc: "Significant wave height, swell waves, ocean periods (ECMWF WAM)" },
+  { id: "wind", labelKey: "overlayWind", defaultLabel: "Wind Streams", icon: <Wind className="h-3.5 w-3.5 text-emerald-600" />, desc: "Surface 10m wind stream vectors & velocity (ECMWF IFS / GFS)" },
+  { id: "gust", labelKey: "overlayGust", defaultLabel: "Wind Gusts", icon: <Compass className="h-3.5 w-3.5 text-amber-600" />, desc: "Peak wind gusts & localized atmospheric turbulence" },
+  { id: "rain", labelKey: "overlayRain", defaultLabel: "Rain & Thunder", icon: <CloudRain className="h-3.5 w-3.5 text-blue-600" />, desc: "Precipitation accumulation, weather radar & thunderstorms" },
+  { id: "temp", labelKey: "overlayTemp", defaultLabel: "Temperature", icon: <Thermometer className="h-3.5 w-3.5 text-rose-600" />, desc: "Surface 2m atmospheric air temperature (°C)" },
+  { id: "clouds", labelKey: "overlayClouds", defaultLabel: "Clouds", icon: <Cloud className="h-3.5 w-3.5 text-slate-500" />, desc: "Cloud cover fraction and satellite infrared imagery" },
+  { id: "cams", labelKey: "overlayCams", defaultLabel: "Air Quality (PM2.5)", icon: <Activity className="h-3.5 w-3.5 text-purple-600" />, desc: "Copernicus CAMS particulate matter (PM2.5) concentrations" },
 ];
 
 export function WindyMapView() {
   const { windyOverlay, setWindyOverlay, selectedLocation } = useAtlas();
+  const { t } = useTranslation();
 
   // Default coordinate is Dhaka, Bangladesh (user requested link: https://www.windy.com/-Waves-waves?waves,23.702,90.374,5)
   const [manualCoords, setManualCoords] = useState<{ lat: number; lon: number; zoom: number } | null>(null);
@@ -68,10 +71,11 @@ export function WindyMapView() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Windy map layers">
             <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Layer:
+              {t("layerLabel")}
             </span>
             {OVERLAYS.map((ov) => {
               const active = windyOverlay === ov.id;
+              const label = t(ov.labelKey);
               return (
                 <button
                   key={ov.id}
@@ -79,14 +83,14 @@ export function WindyMapView() {
                   className={cn(
                     "flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all",
                     active
-                      ? "bg-foreground text-background shadow-sm"
-                      : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
+                      ? "bg-foreground text-background shadow-xs font-semibold"
+                      : "bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                   role="tab"
                   aria-selected={active}
                 >
                   {ov.icon}
-                  <span>{ov.label}</span>
+                  <span>{label}</span>
                 </button>
               );
             })}
@@ -98,9 +102,9 @@ export function WindyMapView() {
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 rounded-md border bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-accent"
-              title="Open full interactive view on Windy.com"
+              title={t("openInWindy")}
             >
-              <span>Windy.com</span>
+              <span>{t("openInWindy")}</span>
               <ExternalLink className="h-3 w-3 text-muted-foreground" />
             </a>
             <Button
@@ -108,7 +112,7 @@ export function WindyMapView() {
               size="icon"
               className="h-7 w-7"
               onClick={() => setRefreshKey((k) => k + 1)}
-              title="Reload live stream"
+              title={t("reloadRadar")}
             >
               <RefreshCw className="h-3.5 w-3.5" />
             </Button>
@@ -118,12 +122,13 @@ export function WindyMapView() {
         {/* Row 2: Region Quick-Presets & Information */}
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-medium text-muted-foreground">Quick Jump:</span>
+            <span className="text-[11px] font-medium text-muted-foreground">{t("quickPresets")}</span>
             {REGION_PRESETS.map((p) => {
               const isMatch = coords.lat === p.lat && coords.lon === p.lon;
+              const name = t(p.nameKey);
               return (
                 <button
-                  key={p.name}
+                  key={p.nameKey}
                   onClick={() => updateCoords({ lat: p.lat, lon: p.lon, zoom: p.zoom })}
                   className={cn(
                     "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] transition-colors",
@@ -133,7 +138,7 @@ export function WindyMapView() {
                   )}
                 >
                   <span>{p.flag}</span>
-                  <span>{p.name}</span>
+                  <span>{name}</span>
                 </button>
               );
             })}
