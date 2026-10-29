@@ -1,7 +1,9 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# ==============================================================================
+# WorldRisk Atlas — Git Ignore Configuration
+# ==============================================================================
 
-# dependencies
-node_modules
+# Dependencies
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -10,45 +12,72 @@ node_modules
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-
-# next.js
-/.next/
+# Next.js & Turbopack Build Outputs
+.next/
 /out/
+/build/
+/dist/
+.turbo/
 
-# production
-/build
+# Environment Variables & Secrets
+.env*.local
+.env.production
+.env.staging
+.env.test
+!.env.example
 
-# misc
-.DS_Store
-*.pem
+# Testing & Coverage
+/coverage/
+*.lcov
 
-# debug
+# TypeScript Build Cache
+*.tsbuildinfo
+next-env.d.ts
+
+# Logs & Debugging
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-local-*
-.claude
-.z-ai-config
-*.log
 dev.log
 dev.out.log
+server.log
 test
 prompt
 
-server.log
-# Skills directory
+# Database Backups & Temporary Storage
+*.db.bak
+*.db-journal
+*.db-wal
+*.db-shm
+*.tmp
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.pem
+
+# IDE & Editor Configurations
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+
+# AI & Workspace Configs
+.claude/
+.z-ai-config/
 /skills/
+local-*
+
+# Vercel Deployment Cache
+.vercel/
