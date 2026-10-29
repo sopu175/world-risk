@@ -10,6 +10,11 @@ import { LAYER_DEFS } from "@/lib/hazard-meta";
 import { HAZARD_TYPES } from "@/lib/types";
 
 const EONET_URL = "https://eonet.gsfc.nasa.gov/api/v3/events?status=all&days=365&limit=500";
+// Sparse categories (volcanoes in particular) barely appear in the rolling
+// 12-month window; the per-category archive endpoint reaches years back for
+// the same reliable public-domain source.
+const EONET_VOLCANO_ARCHIVE_URL =
+  "https://eonet.gsfc.nasa.gov/api/v3/categories/volcanoes?status=all&days=1825&limit=250";
 
 const CATEGORY_MAP: Record<string, string> = {
   severeStorms: "cyclone",
@@ -64,7 +69,28 @@ export async function ingestNasaEonet(ctx: IngestContext): Promise<IngestResult>
   const sourceId = ctx.sourceId;
 
   const payload = await fetchJsonSafe<unknown>(EONET_URL, { timeoutMs: 30_000 });
-  const parsed = eonetResponseSchema.safeParse(payload);
+
+  // Archive pass for sparse categories — merged into the same dedup pool.
+  let archiveEvents: unknown[] = [];
+  try {
+    const archive = await fetchJsonSafe<unknown>(EONET_VOLCANO_ARCHIVE_URL, { timeoutMs: 30_000 });
+    if (archive && typeof archive === "object" && Array.isArray((archive as { events?: unknown[] }).events)) {
+      archiveEvents = (archive as { events: unknown[] }).events;
+      ctx.log(`volcano archive pass: ${archiveEvents.length} historical events (5-year window)`);
+    }
+  } catch (e) {
+    // Archive is additive — a failure here must not fail the whole run.
+    ctx.log(`volcano archive pass skipped: ${e instanceof Error ? e.message.slice(0, 120) : String(e)}`);
+  }
+
+  const rawEvents = [
+    ...((payload as { events?: unknown[] }).events ?? []),
+    ...archiveEvents,
+  ];
+  if (!Array.isArray((payload as { events?: unknown[] }).events)) {
+    throw new Error("EONET payload missing events array");
+  }
+  const parsed = eonetResponseSchema.safeParse({ events: rawEvents });
   if (!parsed.success) {
     throw new Error(
       `EONET payload failed schema validation: ${parsed.error.issues
@@ -74,7 +100,7 @@ export async function ingestNasaEonet(ctx: IngestContext): Promise<IngestResult>
     );
   }
 
-  ctx.log(`fetched ${parsed.data.events.length} EONET events (12-month window)`);
+  ctx.log(`fetched ${parsed.data.events.length} EONET events (12-month window + sparse-category archive)`);
 
   const layers = await db.hazardLayer.findMany();
   const layerByHazardType = new Map(layers.map((l) => [l.hazardType, l]));

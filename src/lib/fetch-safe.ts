@@ -23,6 +23,7 @@ export const ALLOWED_HOSTS = new Set<string>([
   "earthquake.usgs.gov",
   "eonet.gsfc.nasa.gov",
   "api.open-meteo.com",
+  "marine-api.open-meteo.com",
   "geocoding-api.open-meteo.com",
   "archive-api.open-meteo.com",
   "air-quality-api.open-meteo.com",

@@ -5,6 +5,10 @@ import { parseBbox } from "@/lib/geo";
 
 export const dynamic = "force-dynamic";
 
+// Layers stored as quantitative point observations. Other hazards are
+// event-backed (see /api/events) or location-level only.
+const OBSERVATION_LAYERS = new Set(["earthquake", "waves"]);
+
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
@@ -17,16 +21,22 @@ export async function GET(req: Request) {
     if (!q.success) return zodFail(q.error);
     const { layer, bbox: bboxStr, limit, minMagnitude } = q.data;
 
-    // Currently only the earthquake layer is stored as quantitative point
-    // observations. Other hazards are event-backed (see /api/events).
-    if (layer !== "all" && layer !== "earthquake") {
-      return ok({ observations: [], meta: { note: `No point-observation layer for '${layer}' — events are served via /api/events` } });
+    if (layer !== "all" && !OBSERVATION_LAYERS.has(layer)) {
+      return ok({
+        observations: [],
+        meta: { note: `No point-observation layer for '${layer}' — events are served via /api/events` },
+      });
     }
 
     const bbox = parseBbox(bboxStr ?? null);
     if (bboxStr && !bbox) return fail("validation_error", "bbox must be west,south,east,north in valid ranges", 400);
 
     const where: Parameters<typeof db.hazardObservation.findMany>[0]["where"] = {};
+    if (layer !== "all") {
+      const targetLayer = await db.hazardLayer.findUnique({ where: { key: layer }, select: { id: true } });
+      if (!targetLayer) return ok({ observations: [], meta: {} });
+      where.layerId = targetLayer.id;
+    }
     if (bbox) {
       const lngFilter =
         bbox.west <= bbox.east
@@ -39,7 +49,7 @@ export async function GET(req: Request) {
 
     const rows = await db.hazardObservation.findMany({
       where,
-      orderBy: [{ magnitude: "desc" }, { occurredAt: "desc" }],
+      orderBy: [{ occurredAt: "desc" }, { magnitude: "desc" }],
       take: limit,
       select: {
         id: true,
@@ -56,20 +66,37 @@ export async function GET(req: Request) {
         countryCode: true,
         occurredAt: true,
         sourceUrl: true,
+        layer: { select: { key: true } },
       },
     });
 
-    const lastRun = await db.ingestionRun.findFirst({
+    const lastQuakeRun = await db.ingestionRun.findFirst({
       where: { status: { in: ["success", "partial"] }, source: { key: "usgs-earthquakes" } },
       orderBy: { startedAt: "desc" },
       select: { datasetVersion: true, finishedAt: true },
     });
 
     return ok({
-      observations: rows.map((r) => ({ ...r, layerKey: "earthquake", occurredAt: r.occurredAt.toISOString() })),
+      observations: rows.map((r) => ({
+        id: r.id,
+        externalId: r.externalId,
+        layerKey: r.layer.key,
+        lat: r.lat,
+        lng: r.lng,
+        magnitude: r.magnitude,
+        magnitudeType: r.magnitudeType,
+        depthKm: r.depthKm,
+        value: r.value,
+        unit: r.unit,
+        severityLabel: r.severityLabel,
+        place: r.place,
+        countryCode: r.countryCode,
+        occurredAt: r.occurredAt.toISOString(),
+        sourceUrl: r.sourceUrl,
+      })),
       meta: {
-        datasetVersion: lastRun?.datasetVersion ?? null,
-        generatedAt: lastRun?.finishedAt?.toISOString() ?? null,
+        datasetVersion: lastQuakeRun?.datasetVersion ?? null,
+        generatedAt: lastQuakeRun?.finishedAt?.toISOString() ?? null,
         truncated: rows.length >= limit,
       },
     });

@@ -41,10 +41,12 @@ export async function GET() {
 
       let recordCount = 0;
       let lastUpdatedAt: Date | null = null;
-      if (l.hazardType === "earthquake") {
-        const c = obsByLayer.get(l.id);
-        recordCount = c?._count._all ?? 0;
-        lastUpdatedAt = c?._max.occurredAt ?? null;
+      // Observation-backed layers (earthquake, waves) count from
+      // hazard_observation; everything else counts documented events by type.
+      const obs = obsByLayer.get(l.id);
+      if (obs) {
+        recordCount = obs._count._all;
+        lastUpdatedAt = obs._max.occurredAt;
       } else {
         const c = eventsByType.get(l.hazardType);
         recordCount = c?._count._all ?? 0;

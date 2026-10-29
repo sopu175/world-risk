@@ -36,15 +36,18 @@ registered source; attribution is shown in the app (footer, location panels,
 | Source | Used for | License | Link |
 |---|---|---|---|
 | **U.S. Geological Survey** — Earthquake Hazards Program | earthquake layer (M2.5+ 30-day feed), 10-year seismic history (FDSN API) | Public domain (U.S. Government work) | <https://earthquake.usgs.gov> |
-| **NASA EONET v3** — Earth Observatory Natural Event Tracker | documented wildfire / flood / cyclone / drought / landslide / volcano events | Public domain (NASA) | <https://eonet.gsfc.nasa.gov/api/v3> |
+| **NASA EONET v3** — Earth Observatory Natural Event Tracker | documented wildfire / flood / cyclone events + 5-year volcano category archive (222 events) | Public domain (NASA) | <https://eonet.gsfc.nasa.gov/api/v3> |
 | **Open-Meteo** — ERA5 Historical Archive (Copernicus C3S / ECMWF) | extreme-heat profile (daily Tmax, hot days/yr, climatology, trend) | CC-BY 4.0 | <https://open-meteo.com/en/docs/historical-weather-api> |
 | **Open-Meteo** — Air Quality (Copernicus **CAMS**) | PM2.5 indicator (72 h) | CC-BY 4.0 | <https://open-meteo.com/en/docs/air-quality-api> |
 | **Open-Meteo** — Geocoding (GeoNames) | location search | CC-BY 4.0 (GeoNames data) | <https://open-meteo.com/en/docs/geocoding-api> |
+| **Open-Meteo** — Marine API (ECMWF WAM) | Ocean waves layer — significant wave height on a 10° global ocean grid (468 sample points) | CC-BY 4.0 | <https://open-meteo.com/en/docs/marine-weather-api> |
 | **OpenStreetMap** — Nominatim | reverse geocoding (map-click naming; ≤1 req/s per OSMF policy, 24 h cache) | ODbL 1.0 © OpenStreetMap contributors | <https://nominatim.openstreetmap.org> |
 | **OpenFreeMap / OpenMapTiles** | neutral vector basemap (Positron & dark) | Free, no API key — © OpenStreetMap contributors | <https://openfreemap.org> |
 | **ReliefWeb Disasters API v2** (UN OCHA) | richer event metadata | Reusable with attribution to the original source — *disabled until an approved `appname` is configured* | <https://apidoc.reliefweb.int> |
 | **NASA FIRMS** (VIIRS/Suomi-NPP) | active fire hotspots (planned, per-viewport) | Public domain — *disabled until a free MAP_KEY is configured* | <https://firms.modaps.eosdis.nasa.gov> |
 
+> **Honest gaps.** Drought and landslide layers are deliberately **unavailable**: we tested six candidate feeds (EONET archive, GDACS, Smithsonian GVP, US Drought Monitor, ReliefWeb, NASA FIRMS) and none currently offers a reliable open event stream for them — the layers say so instead of showing estimated data. Volcanic activity uses EONET's 5-year category archive; live USGS alert levels were evaluated but the public HANS API lacks coordinates.
+>
 > **License note.** Platform code is MIT (see [`LICENSE`](LICENSE)). The **data**
 > keeps its provider licenses — redistributing extracted data is subject to
 > those terms, not MIT.

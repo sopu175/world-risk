@@ -150,7 +150,8 @@ export const LAYER_DEFS: LayerDef[] = [
     colorHex: "#ca8a04",
     mapAvailable: true,
     statusWhenNoData: "unavailable",
-    statusReasonNoData: "Waiting for the first validated EONET import.",
+    statusReasonNoData:
+      "No reliable open event feed publishes drought episodes (tested: EONET archive empty, GDACS discontinued, ReliefWeb requires registration). The layer stays unavailable rather than showing estimated data.",
     legend: null,
     sortOrder: 25,
   },
@@ -172,7 +173,8 @@ export const LAYER_DEFS: LayerDef[] = [
     colorHex: "#854d0e",
     mapAvailable: true,
     statusWhenNoData: "unavailable",
-    statusReasonNoData: "Waiting for the first validated EONET import.",
+    statusReasonNoData:
+      "No reliable open event feed publishes landslides (EONET archive has none; major aggregators require registration). Susceptibility modelling is not yet imported.",
     legend: null,
     sortOrder: 30,
   },
@@ -244,6 +246,38 @@ export const LAYER_DEFS: LayerDef[] = [
     statusReasonNoData: "Location-level indicator only (computed from CAMS on demand).",
     legend: null,
     sortOrder: 45,
+  },
+  {
+    key: "waves",
+    name: "Ocean waves",
+    hazardType: "waves",
+    kind: "observation",
+    description:
+      "Current significant wave height across the global oceans — the same quantity Windy renders as its Waves layer — sampled from the ECMWF WAM model on a fixed 10° ocean grid.",
+    units: "significant wave height (m); sea-state label per the Douglas scale",
+    methodology:
+      "ECMWF WAM wave model via the Open-Meteo Marine API (CC-BY 4.0), sampled at a fixed 10° latitude/longitude ocean grid (468 sample points, land cells skipped). Current-conditions snapshot refreshed every 6 h; each grid point stores its latest value. Sea-state labels (calm → phenomenal) are derived from height per the Douglas scale.",
+    resolution: "10° sample grid of a ~25 km native model (not buoy measurements)",
+    temporalCoverage: "current conditions (refreshed every 6 h)",
+    licenseName: "CC-BY 4.0 (Open-Meteo / ECMWF WAM)",
+    licenseUrl: "https://open-meteo.com/en/license",
+    limitations:
+      "Model output, not buoy measurements — coastal sheltering, bathymetry and surf-zone effects are not resolved. A 10° grid cannot capture local sea-state extremes between sample points.",
+    sourceKey: "openmeteo-marine",
+    colorHex: "#0f766e",
+    mapAvailable: true,
+    statusWhenNoData: "unavailable",
+    statusReasonNoData: "Waiting for the first validated marine-grid import.",
+    legend: [
+      { label: "< 0.5 m — calm", color: "#5eead4", max: 0.5 },
+      { label: "0.5 – 1.25 m — slight", color: "#2dd4bf", min: 0.5, max: 1.25 },
+      { label: "1.25 – 2.5 m — moderate", color: "#14b8a6", min: 1.25, max: 2.5 },
+      { label: "2.5 – 4 m — rough", color: "#0d9488", min: 2.5, max: 4 },
+      { label: "4 – 6 m — very rough", color: "#0f766e", min: 4, max: 6 },
+      { label: "6 – 9 m — high", color: "#115e59", min: 6, max: 9 },
+      { label: "≥ 9 m — phenomenal", color: "#134e4a", min: 9 },
+    ],
+    sortOrder: 50,
   },
 ];
 

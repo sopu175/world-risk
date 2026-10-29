@@ -11,7 +11,6 @@ import { Search, MapPin, Info, Loader2 } from "lucide-react";
 import { fetchLayers, searchLocations } from "@/lib/api-client";
 import { useAtlas } from "@/lib/store";
 import { StatusBadge, Freshness } from "@/components/atlas/ui-bits";
-import { EARTHQUAKE_MAGNITUDE_LEGEND } from "@/lib/hazard-meta";
 import type { GeoSearchResult, LayerDTO } from "@/lib/types";
 
 const COORD_RE = /^\s*(-?\d{1,2}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
@@ -204,25 +203,24 @@ export function LayerPanel({ onLocate }: { onLocate?: () => void }) {
         })}
       </ul>
 
-      {/* ------------------------------------------------ legend */}
-      {activeLayers.includes("earthquake") && (
-        <div className="rounded-lg border p-3">
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Legend — earthquake magnitude
+      {/* ------------------------------------------------ legends */}
+      {layers
+        .filter((l) => activeLayers.includes(l.key) && l.legend && l.legend.length > 0)
+        .map((l) => (
+          <div key={`legend-${l.key}`} className="rounded-lg border p-3">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Legend — {l.name}
+            </div>
+            <ul className="space-y-1">
+              {l.legend!.map((b) => (
+                <li key={b.label} className="flex items-center gap-2 text-xs">
+                  <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: b.color }} />
+                  {b.label}
+                </li>
+              ))}
+            </ul>
           </div>
-          <ul className="space-y-1">
-            {EARTHQUAKE_MAGNITUDE_LEGEND.map((b) => (
-              <li key={b.label} className="flex items-center gap-2 text-xs">
-                <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: b.color }} />
-                {b.label}
-              </li>
-            ))}
-          </ul>
-          <div className="mt-2 text-[11px] text-muted-foreground">
-            Active events (from NASA EONET) carry a soft halo. Circle size scales with magnitude and zoom.
-          </div>
-        </div>
-      )}
+        ))}
 
       <p className="mt-auto text-[11px] leading-snug text-muted-foreground">
         Only layers with a configured, validated data source are toggleable. Click anywhere on the map to inspect that

@@ -10,5 +10,6 @@ export const LAYER_COLOR_BY_EVENT_TYPE_FALLBACK: Record<string, string> = {
   volcano: "#b91c1c",
   extreme_heat: "#dc2626",
   air_quality: "#4d7c0f",
+  waves: "#0f766e",
   other: "#57534e",
 };

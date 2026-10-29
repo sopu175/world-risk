@@ -224,6 +224,7 @@ export const HAZARD_TYPES = [
   "landslide",
   "air_quality",
   "volcano",
+  "waves",
 ] as const;
 
 export type RunStatus = "success" | "partial" | "failed";

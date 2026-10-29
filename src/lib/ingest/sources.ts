@@ -36,6 +36,7 @@ export type SourceDef = {
 import { ingestUsgsEarthquakes } from "@/lib/ingest/usgs-earthquakes";
 import { ingestNasaEonet } from "@/lib/ingest/nasa-eonet";
 import { ingestReliefwebDisasters } from "@/lib/ingest/reliefweb-disasters";
+import { ingestOpenMeteoMarine } from "@/lib/ingest/openmeteo-marine";
 
 export const SOURCE_DEFS: SourceDef[] = [
   {
@@ -96,6 +97,21 @@ export const SOURCE_DEFS: SourceDef[] = [
     notes:
       "Free MAP_KEY registration required. Planned integration scope: per-map-viewport hotspot queries (global 24 h CSV exceeds ingestion limits). No hotspot data is loaded until the key is configured and the adapter is validated.",
     ingest: null, // adapter deliberately pending until key present
+  },
+  {
+    key: "openmeteo-marine",
+    name: "Open-Meteo Marine API (ECMWF WAM) — global wave-height grid",
+    provider: "Open-Meteo / Copernicus (ECMWF WAM)",
+    homepageUrl: "https://open-meteo.com/en/docs/marine-weather-api",
+    licenseName: "CC-BY 4.0",
+    licenseUrl: "https://open-meteo.com/en/license",
+    endpointUrl: "https://marine-api.open-meteo.com/v1/marine",
+    accessMode: "bulk",
+    cadenceHours: 6,
+    requiresApiKeyEnv: null,
+    notes:
+      "Samples the current significant wave height on a fixed 10° ocean grid (468 points, land cells skipped) to power the Ocean waves map layer. Each grid point stores its latest value (upsert semantics — snapshot, not history).",
+    ingest: ingestOpenMeteoMarine,
   },
   {
     key: "openmeteo-geocoding",

@@ -58,24 +58,64 @@ const EVENT_COLOR: unknown = [
   "#57534e",
 ];
 
+const WAVE_COLOR: unknown = [
+  "interpolate",
+  ["linear"],
+  ["get", "val"],
+  0,
+  "#5eead4",
+  1,
+  "#2dd4bf",
+  2,
+  "#14b8a6",
+  3,
+  "#0d9488",
+  4.5,
+  "#0f766e",
+  6,
+  "#115e59",
+  9,
+  "#134e4a",
+];
+
 const EVENT_LAYERS = ["flood", "cyclone", "drought", "wildfire", "landslide", "volcano"];
 
 function eqToGeojson(obs: ObservationDTO[]): GeoJSON.FeatureCollection<GeoJSON.Point> {
   return {
     type: "FeatureCollection",
-    features: obs.map((o) => ({
-      type: "Feature" as const,
-      geometry: { type: "Point" as const, coordinates: [o.lng, o.lat] },
-      properties: {
-        extId: o.externalId,
-        mag: o.magnitude ?? 0,
-        depthKm: o.depthKm,
-        place: o.place ?? "Unknown location",
-        occurredAt: o.occurredAt,
-        magType: o.magnitudeType ?? "M",
-        url: o.sourceUrl ?? "",
-      },
-    })),
+    features: obs
+      .filter((o) => o.layerKey === "earthquake")
+      .map((o) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [o.lng, o.lat] },
+        properties: {
+          extId: o.externalId,
+          mag: o.magnitude ?? 0,
+          depthKm: o.depthKm,
+          place: o.place ?? "Unknown location",
+          occurredAt: o.occurredAt,
+          magType: o.magnitudeType ?? "M",
+          url: o.sourceUrl ?? "",
+        },
+      })),
+  };
+}
+
+function wavesToGeojson(obs: ObservationDTO[]): GeoJSON.FeatureCollection<GeoJSON.Point> {
+  return {
+    type: "FeatureCollection",
+    features: obs
+      .filter((o) => o.layerKey === "waves" && o.value !== null)
+      .map((o) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [o.lng, o.lat] },
+        properties: {
+          extId: o.externalId,
+          val: o.value ?? 0,
+          severity: o.severityLabel ?? "",
+          occurredAt: o.occurredAt,
+        },
+      })),
   };
 }
 
@@ -171,6 +211,7 @@ export function MapView({
         if (!map.isStyleLoaded()) return;
         ensureDataLayers(map);
         pushEq(map, propsRef.current.observations);
+        pushWaves(map, propsRef.current.observations);
         pushEvents(map, propsRef.current.events);
         applyVisibility(map, propsRef.current.activeLayers);
       });
@@ -203,6 +244,7 @@ export function MapView({
     const map = mapRef.current;
     if (!map || !ready) return;
     pushEq(map, observations);
+    pushWaves(map, observations);
   }, [observations, ready]);
 
   useEffect(() => {
@@ -230,6 +272,9 @@ export function MapView({
     if (!map.getSource("eq-src")) {
       map.addSource("eq-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
     }
+    if (!map.getSource("waves-src")) {
+      map.addSource("waves-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    }
     if (!map.getSource("events-src")) {
       map.addSource("events-src", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
     }
@@ -252,6 +297,28 @@ export function MapView({
           "circle-stroke-width": 1,
           "circle-stroke-color": "rgba(255,255,255,0.85)",
           "circle-opacity": 0.82,
+        },
+      });
+    }
+    if (!map.getLayer("wave-circles")) {
+      map.addLayer({
+        id: "wave-circles",
+        type: "circle",
+        source: "waves-src",
+        paint: {
+          "circle-color": WAVE_COLOR as never,
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            0,
+            ["interpolate", ["linear"], ["get", "val"], 0, 3, 9, 8],
+            5,
+            ["interpolate", ["linear"], ["get", "val"], 0, 5, 9, 16],
+          ],
+          "circle-stroke-width": 1,
+          "circle-stroke-color": "rgba(255,255,255,0.7)",
+          "circle-opacity": 0.72,
         },
       });
     }
@@ -300,6 +367,12 @@ export function MapView({
       showEqPopup(map, e.lngLat.lng, e.lngLat.lat, p);
       return;
     }
+    const waveFeatures = map.queryRenderedFeatures(e.point, { layers: ["wave-circles"] });
+    if (waveFeatures.length > 0) {
+      const p = waveFeatures[0].properties as Record<string, string | number>;
+      showWavePopup(map, e.lngLat.lng, e.lngLat.lat, p);
+      return;
+    }
     // Empty map click → inspect this location.
     popupRef.current?.remove();
     propsRef.current.onRequestLocation({
@@ -321,6 +394,25 @@ export function MapView({
         <div class="wra-popup-meta">${escapeHtml(String(p.magType))} · depth ${escapeHtml(depth)} · ${escapeHtml(formatDateSafe(new Date(Number.isFinite(+p.occurredAt) ? +p.occurredAt : p.occurredAt as string)))}</div>
         <div class="wra-popup-meta">${escapeHtml(formatCoord(lat, lng, 2))}</div>
         ${p.url ? `<a class="wra-popup-link" href="${escapeHtml(String(p.url))}" target="_blank" rel="noopener noreferrer">Open USGS event page ↗</a>` : ""}
+      </div>`;
+    popupRef.current = new maplibreglRef.Popup({ maxWidth: "270px", closeButton: true })
+      .setLngLat([lng, lat])
+      .setHTML(html)
+      .addTo(map);
+  }
+
+  function showWavePopup(map: MlMap, lng: number, lat: number, p: Record<string, string | number>) {
+    const maplibreglRef = mapLibreCtorRef.current;
+    if (!maplibreglRef) return;
+    popupRef.current?.remove();
+    const val = typeof p.val === "number" ? p.val : Number(p.val);
+    const html = `
+      <div class="wra-popup">
+        <div class="wra-popup-kicker">Ocean waves · ECMWF WAM via Open-Meteo</div>
+        <div class="wra-popup-title">Significant wave height ${escapeHtml(String(Number.isFinite(val) ? val.toFixed(1) : "—"))} m</div>
+        ${p.severity ? `<div class="wra-popup-meta">Sea state: ${escapeHtml(String(p.severity))} (Douglas scale)</div>` : ""}
+        <div class="wra-popup-meta">${escapeHtml(formatCoord(lat, lng, 1))} · updated ${escapeHtml(formatDateSafe(new Date(Number.isFinite(+p.occurredAt) ? +p.occurredAt : (p.occurredAt as string))))}</div>
+        <div class="wra-popup-meta">Grid sample of a ~25 km model — not a buoy reading</div>
       </div>`;
     popupRef.current = new maplibreglRef.Popup({ maxWidth: "270px", closeButton: true })
       .setLngLat([lng, lat])
@@ -387,6 +479,11 @@ function pushEq(map: MlMap, obs: ObservationDTO[]) {
   if (src) src.setData(eqToGeojson(obs));
 }
 
+function pushWaves(map: MlMap, obs: ObservationDTO[]) {
+  const src = map.getSource("waves-src") as GeoJSONSource | undefined;
+  if (src) src.setData(wavesToGeojson(obs));
+}
+
 function pushEvents(map: MlMap, events: EventDTO[]) {
   const src = map.getSource("events-src") as GeoJSONSource | undefined;
   if (src) src.setData(eventsToGeojson(events));
@@ -396,6 +493,10 @@ function applyVisibility(map: MlMap, activeLayers: string[]) {
   const eqOn = activeLayers.includes("earthquake");
   if (map.getLayer("eq-circles")) {
     map.setLayoutProperty("eq-circles", "visibility", eqOn ? "visible" : "none");
+  }
+  const wavesOn = activeLayers.includes("waves");
+  if (map.getLayer("wave-circles")) {
+    map.setLayoutProperty("wave-circles", "visibility", wavesOn ? "visible" : "none");
   }
   const activeEventTypes = EVENT_LAYERS.filter((t) => activeLayers.includes(t));
   const eventsOn = activeEventTypes.length > 0;

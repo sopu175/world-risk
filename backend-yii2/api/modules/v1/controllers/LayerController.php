@@ -57,13 +57,13 @@ final class LayerController extends BaseController
             $hazardType = (string) $l['hazard_type'];
             $sourceKey = $l['source_key'] !== null ? (string) $l['source_key'] : null;
 
+            // Observation-backed layers (earthquake, waves) count from
+            // hazard_observation; everything else counts documented events.
             $recordCount = 0;
             $lastAt = null;
-            if ($hazardType === 'earthquake') {
-                if (isset($obsByLayer[$layerId])) {
-                    $recordCount = (int) $obsByLayer[$layerId]['cnt'];
-                    $lastAt = $obsByLayer[$layerId]['last_at'];
-                }
+            if (isset($obsByLayer[$layerId])) {
+                $recordCount = (int) $obsByLayer[$layerId]['cnt'];
+                $lastAt = $obsByLayer[$layerId]['last_at'];
             } elseif (isset($eventsByType[$hazardType])) {
                 $recordCount = (int) $eventsByType[$hazardType]['cnt'];
                 $lastAt = $eventsByType[$hazardType]['last_at'];

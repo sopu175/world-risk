@@ -26,9 +26,10 @@ final class LayerCatalog
         'wildfire' => 'Waiting for the first validated EONET import.',
         'flood' => 'Waiting for the first validated EONET import.',
         'cyclone' => 'Waiting for the first validated EONET import.',
-        'drought' => 'Waiting for the first validated EONET import.',
-        'landslide' => 'Waiting for the first validated EONET import.',
-        'volcano' => 'Waiting for the first validated EONET import.',
+        'drought' => 'No reliable open event feed publishes drought episodes (tested: EONET archive empty, GDACS discontinued, ReliefWeb requires registration). The layer stays unavailable rather than showing estimated data.',
+        'landslide' => 'No reliable open event feed publishes landslides (EONET archive has none; major aggregators require registration). Susceptibility modelling is not yet imported.',
+        'volcano' => 'Waiting for the first validated EONET import (12-month feed + 5-year volcano archive).',
+        'waves' => 'Waiting for the first validated marine-grid import.',
     ];
 
     /** @return list<array{label:string,color:string,min?:float,max?:float}>|null */
