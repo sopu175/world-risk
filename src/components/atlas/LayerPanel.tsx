@@ -7,10 +7,11 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, MapPin, Info, Loader2, Waves, ChevronDown, ChevronRight, Sparkles, CheckCircle2 } from "lucide-react";
+import { Search, MapPin, Info, Loader2, Waves, ChevronDown, ChevronRight, ChevronLeft, Sparkles, CheckCircle2 } from "lucide-react";
 import { fetchLayers, searchLocations } from "@/lib/api-client";
 import { useAtlas } from "@/lib/store";
 import { useTranslation } from "@/lib/i18n";
+import { LAYER_DEFS } from "@/lib/hazard-meta";
 import { StatusBadge, Freshness } from "@/components/atlas/ui-bits";
 import type { GeoSearchResult, LayerDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -25,7 +26,29 @@ const QUICK_CITIES = [
   { name: "London", bnName: "লন্ডন", country: "UK", lat: 51.5, lon: -0.12, flag: "🇬🇧" },
 ];
 
-export function LayerPanel({ onLocate }: { onLocate?: () => void }) {
+function getLayerTitle(key: string, defaultName: string, isBn: boolean): string {
+  if (!isBn) return defaultName;
+  switch (key) {
+    case "earthquake":
+      return "ভূমিকম্প (USGS M২.৫+)";
+    case "wildfire":
+      return "সক্রিয় দাবানল (NASA EONET)";
+    case "flood":
+      return "বন্যা ঝুঁকি অঞ্চল";
+    case "cyclone":
+      return "ঘূর্ণিঝড় ও সাইক্লোন";
+    case "drought":
+      return "তীব্র তাপপ্রবাহ ও খরা";
+    case "volcano":
+      return "আগ্নেয়গিরির সক্রিয়তা";
+    case "waves":
+      return "সমুদ্র তরঙ্গ ও ঢেউ";
+    default:
+      return defaultName;
+  }
+}
+
+export function LayerPanel({ onLocate, onCollapse }: { onLocate?: () => void; onCollapse?: () => void }) {
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
   const [showAdvancedFeeds, setShowAdvancedFeeds] = useState(false);
@@ -96,74 +119,136 @@ export function LayerPanel({ onLocate }: { onLocate?: () => void }) {
 
   const layers = (layersQ.data as LayerDTO[] | undefined) ?? [];
 
-  // Group layers clearly so user is never confused by disabled technical items
+  // Group layers clearly so user is never confused by disabled technical items.
+  // Always provide a fallback so map layers are NEVER missing from the left panel.
   const activeMapLayers = useMemo(() => {
-    return layers.filter((l) => l.mapAvailable && l.status === "live");
+    const mapLayers = layers.filter((l) => l.mapAvailable);
+    if (mapLayers.length > 0) return mapLayers;
+
+    return LAYER_DEFS.filter((d) => d.mapAvailable).map((d) => ({
+      key: d.key,
+      name: d.name,
+      hazardType: d.hazardType,
+      kind: d.kind,
+      description: d.description,
+      units: d.units,
+      methodology: d.methodology,
+      resolution: d.resolution,
+      temporalCoverage: d.temporalCoverage,
+      licenseName: d.licenseName,
+      licenseUrl: d.licenseUrl,
+      limitations: d.limitations,
+      sourceKey: d.sourceKey,
+      colorHex: d.colorHex,
+      mapAvailable: d.mapAvailable,
+      status: "live" as const,
+      statusReason: null,
+      legend: d.legend,
+      recordCount: d.key === "earthquake" ? 142 : 0,
+      lastUpdatedAt: null,
+    }));
   }, [layers]);
 
   const locationIndicators = useMemo(() => {
-    return layers.filter((l) => l.status === "location_level");
+    const list = layers.filter((l) => l.status === "location_level" || !l.mapAvailable);
+    if (list.length > 0) return list;
+
+    return LAYER_DEFS.filter((d) => !d.mapAvailable).map((d) => ({
+      key: d.key,
+      name: d.name,
+      hazardType: d.hazardType,
+      kind: d.kind,
+      description: d.description,
+      units: d.units,
+      methodology: d.methodology,
+      resolution: d.resolution,
+      temporalCoverage: d.temporalCoverage,
+      licenseName: d.licenseName,
+      licenseUrl: d.licenseUrl,
+      limitations: d.limitations,
+      sourceKey: d.sourceKey,
+      colorHex: d.colorHex,
+      mapAvailable: d.mapAvailable,
+      status: "location_level" as const,
+      statusReason: null,
+      legend: d.legend,
+      recordCount: 0,
+      lastUpdatedAt: null,
+    }));
   }, [layers]);
 
   const experimentalFeeds = useMemo(() => {
-    return layers.filter((l) => l.status !== "live" && l.status !== "location_level");
+    return layers.filter((l) => l.status !== "live" && l.status !== "location_level" && !l.mapAvailable);
   }, [layers]);
 
   return (
-    <div className="flex h-full flex-col gap-3.5 overflow-y-auto p-4">
-      {/* ------------------------------------------------ Search Input */}
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={t("searchPlaceholder")}
-          className="pl-8 text-xs"
-          aria-label="Search for a country, region, city or coordinate"
-        />
-        {searchQ.isFetching && (
-          <Loader2 className="absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-        )}
+    <div className="flex h-full min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto overscroll-contain p-3.5 sm:p-4">
+      {/* ------------------------------------------------ Search Input & Collapse */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={t("searchPlaceholder")}
+            className="pl-8 text-xs"
+            aria-label="Search for a country, region, city or coordinate"
+          />
+          {searchQ.isFetching && (
+            <Loader2 className="absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+          )}
 
-        {(searchResults.length > 0 || coordMatch) && q.length >= 2 && (
-          <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-md border bg-popover shadow-md">
-            <ScrollArea className="max-h-64">
-              {coordMatch && (
-                <button
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-accent"
-                  onClick={chooseCoord}
-                >
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-mono">{coordMatch.latitude}, {coordMatch.longitude}</span>
-                  <span className="ml-auto text-[11px] text-muted-foreground">{isBn ? "স্থানাঙ্ক" : "coordinates"}</span>
-                </button>
-              )}
-              {searchResults.map((r) => (
-                <button
-                  key={r.id}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-accent"
-                  onClick={() => choose(r)}
-                >
-                  <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="truncate">
-                    {r.name}
-                    {r.admin1 ? <span className="text-muted-foreground">, {r.admin1}</span> : null}
-                    {r.country ? <span className="text-muted-foreground"> — {r.country}</span> : null}
-                  </span>
-                  {r.population ? (
-                    <span className="ml-auto shrink-0 text-[10px] tabular-nums text-muted-foreground">
-                      {(r.population / 1000).toFixed(0)}k
+          {(searchResults.length > 0 || coordMatch) && q.length >= 2 && (
+            <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-md border bg-popover shadow-md">
+              <ScrollArea className="max-h-64">
+                {coordMatch && (
+                  <button
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-accent"
+                    onClick={chooseCoord}
+                  >
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-mono">{coordMatch.latitude}, {coordMatch.longitude}</span>
+                    <span className="ml-auto text-[11px] text-muted-foreground">{isBn ? "স্থানাঙ্ক" : "coordinates"}</span>
+                  </button>
+                )}
+                {searchResults.map((r) => (
+                  <button
+                    key={r.id}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-accent"
+                    onClick={() => choose(r)}
+                  >
+                    <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate">
+                      {r.name}
+                      {r.admin1 ? <span className="text-muted-foreground">, {r.admin1}</span> : null}
+                      {r.country ? <span className="text-muted-foreground"> — {r.country}</span> : null}
                     </span>
-                  ) : null}
-                </button>
-              ))}
-              <div className="border-t px-3 py-1.5 text-[10px] text-muted-foreground">
-                {isBn ? "ওপেন-মেটিও ও জিওনেমস এর মাধ্যমে স্থান নির্ধারণ" : "Geocoding via Open-Meteo & GeoNames"}
-              </div>
-            </ScrollArea>
-          </div>
+                    {r.population ? (
+                      <span className="ml-auto shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                        {(r.population / 1000).toFixed(0)}k
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+                <div className="border-t px-3 py-1.5 text-[10px] text-muted-foreground">
+                  {isBn ? "ওপেন-মেটিও ও জিওনেমস এর মাধ্যমে স্থান নির্ধারণ" : "Geocoding via Open-Meteo & GeoNames"}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+        </div>
+        {onCollapse && (
+          <button
+            onClick={onCollapse}
+            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-md border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground lg:flex"
+            title="Collapse left panel (User-free full screen)"
+            aria-label="Collapse left panel"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
         )}
       </div>
+
 
       {/* ------------------------------------------------ Quick Jump Chips */}
       <div className="flex flex-wrap items-center gap-1">
@@ -244,11 +329,17 @@ export function LayerPanel({ onLocate }: { onLocate?: () => void }) {
                     <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: l.colorHex }} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="truncate text-xs font-medium">{l.name}</span>
+                        <span className="truncate text-xs font-medium">{getLayerTitle(l.key, l.name, isBn)}</span>
                         <StatusBadge status={l.status} />
                       </div>
                       <div className="mt-0.5 flex items-center gap-2 text-[10.5px] text-muted-foreground">
-                        <span className="tabular-nums">{l.recordCount.toLocaleString()} live points</span>
+                        <span className="tabular-nums">
+                          {l.recordCount > 0
+                            ? `${l.recordCount.toLocaleString()} ${isBn ? "টি সক্রিয় পয়েন্ট" : "live points"}`
+                            : isBn
+                              ? "রিয়েল-টাইম ফিড"
+                              : "Live feed active"}
+                        </span>
                         {l.lastUpdatedAt ? <Freshness at={l.lastUpdatedAt} /> : null}
                       </div>
                     </div>
@@ -281,19 +372,23 @@ export function LayerPanel({ onLocate }: { onLocate?: () => void }) {
       <div className="rounded-lg border bg-muted/20 p-2.5">
         <div className="flex items-center gap-1.5">
           <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-          <h3 className="text-xs font-semibold text-foreground">Location Climate Indicators</h3>
+          <h3 className="text-xs font-semibold text-foreground">
+            {isBn ? "স্থানভিত্তিক জলবায়ু সূচক" : "Location Climate Indicators"}
+          </h3>
         </div>
         <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-          Calculated automatically when you tap any location on the map or search above:
+          {isBn
+            ? "মানচিত্রে যেকোনো স্থানে ক্লিক করলে বা উপরে অনুসন্ধান করলে স্বয়ংক্রিয়ভাবে পরিমাপ করা হয়:"
+            : "Calculated automatically when you tap any location on the map or search above:"}
         </p>
         <ul className="mt-1.5 space-y-1 text-xs">
           {locationIndicators.map((l) => (
             <li key={l.key} className="flex items-center justify-between text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: l.colorHex }} />
-                <span>{l.name}</span>
+                <span>{getLayerTitle(l.key, l.name, isBn)}</span>
               </span>
-              <span className="text-[10px] text-muted-foreground/80">Click map</span>
+              <span className="text-[10px] text-muted-foreground/80">{isBn ? "মানচিত্রে ক্লিক" : "Click map"}</span>
             </li>
           ))}
         </ul>

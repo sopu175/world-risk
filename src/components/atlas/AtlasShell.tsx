@@ -23,6 +23,7 @@ export function AtlasShell() {
   const { t, locale, setLocale } = useTranslation();
   const qc = useQueryClient();
   const [layersDrawerOpen, setLayersDrawerOpen] = useState(false);
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
   const [bootstrapping, setBootstrapping] = useState(true);
 
   // First-run bootstrap: idempotent; kicks the initial ingestion on a fresh DB.
@@ -87,7 +88,7 @@ export function AtlasShell() {
             </span>
           )}
 
-          {/* mobile layers drawer */}
+          {/* mobile layers / events drawer */}
           <Sheet open={layersDrawerOpen} onOpenChange={setLayersDrawerOpen}>
             <Button
               variant="outline"
@@ -97,14 +98,20 @@ export function AtlasShell() {
               aria-expanded={layersDrawerOpen}
               aria-haspopup="dialog"
             >
-              <Layers3 className="mr-1.5 h-4 w-4" /> {t("layersBtn")}
+              <Layers3 className="mr-1.5 h-4 w-4" /> {view === "map" ? t("layersBtn") : t("navEvents")}
             </Button>
-            <UiSheetContent side="left" className="w-[320px] p-0">
-              <SheetHeader className="border-b p-4 pb-3">
-                <SheetTitle className="text-sm">{t("searchAndLayers")}</SheetTitle>
+            <UiSheetContent side="left" className="flex h-full w-[85vw] max-w-[340px] flex-col gap-0 p-0 overflow-hidden">
+              <SheetHeader className="border-b p-3.5 pb-2.5">
+                <SheetTitle className="text-sm">
+                  {view === "map" ? t("searchAndLayers") : t("documentedDisasters")}
+                </SheetTitle>
               </SheetHeader>
-              <div className="h-[calc(100%-57px)]">
-                <LayerPanel onLocate={() => setLayersDrawerOpen(false)} />
+              <div className="flex-1 min-h-0 overflow-hidden">
+                {view === "map" ? (
+                  <LayerPanel onLocate={() => setLayersDrawerOpen(false)} />
+                ) : (
+                  <EventsPanel compact onCollapse={() => setLayersDrawerOpen(false)} />
+                )}
               </div>
             </UiSheetContent>
           </Sheet>
@@ -145,19 +152,43 @@ export function AtlasShell() {
       </header>
 
       {/* -------------------------------------------------------------- main */}
-      <main className="relative min-h-0 flex-1">
+      <main className="relative min-h-0 flex-1 overflow-hidden">
         {view === "windy" ? (
           <WindyMapView />
         ) : showMap ? (
-          <div className="flex h-full">
-            <aside className="hidden w-[340px] shrink-0 border-r bg-background lg:block">
+          <div className="flex h-full min-h-0 overflow-hidden">
+            <aside
+              className={cn(
+                "border-r bg-background transition-all duration-200 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden",
+                leftPanelCollapsed ? "lg:hidden" : "w-[340px] shrink-0"
+              )}
+            >
               {view === "map" ? (
-                <LayerPanel />
+                <LayerPanel onCollapse={() => setLeftPanelCollapsed(true)} />
               ) : (
-                <EventsPanel />
+                <EventsPanel onCollapse={() => setLeftPanelCollapsed(true)} />
               )}
             </aside>
             <div className="relative min-w-0 flex-1">
+              {/* Floating Menu / Layer Toggle Button (Visible when left panel is collapsed or on smaller screens) */}
+              <button
+                onClick={() => {
+                  if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+                    setLeftPanelCollapsed(false);
+                  } else {
+                    setLayersDrawerOpen(true);
+                  }
+                }}
+                className={cn(
+                  "absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full border bg-background/95 px-3 py-1.5 text-xs font-semibold shadow-md backdrop-blur transition-all hover:bg-accent hover:shadow-lg",
+                  !leftPanelCollapsed && "lg:hidden"
+                )}
+                aria-label="Open side menu"
+              >
+                <Layers3 className="h-3.5 w-3.5 text-teal-600" />
+                <span>{view === "map" ? t("layersBtn") : t("navEvents")}</span>
+              </button>
+
               {/* Floating Quick Mode Switcher */}
               <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full border bg-background/95 p-1 shadow-md backdrop-blur">
                 <button
@@ -192,7 +223,12 @@ export function AtlasShell() {
               />
 
               {obsQ.isFetching && (
-                <div className="absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-background/90 px-2.5 py-1 text-[11px] text-muted-foreground shadow-sm border">
+                <div
+                  className={cn(
+                    "absolute top-3 z-10 inline-flex items-center gap-1.5 rounded-full border bg-background/90 px-2.5 py-1 text-[11px] text-muted-foreground shadow-sm transition-all",
+                    leftPanelCollapsed ? "left-36" : "left-3 lg:left-3 max-lg:left-36"
+                  )}
+                >
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-600" /> {t("syncingHazard")}
                 </div>
               )}
@@ -204,7 +240,7 @@ export function AtlasShell() {
             </div>
           </div>
         ) : (
-          <div className="h-full">
+          <div className="h-full min-h-0 overflow-hidden">
             <MethodologyPanel />
           </div>
         )}

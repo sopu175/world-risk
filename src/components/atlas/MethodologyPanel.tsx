@@ -11,7 +11,7 @@ export function MethodologyPanel() {
   const layers = layersQ.data ?? [];
 
   return (
-    <ScrollArea className="h-full">
+    <div className="h-full min-h-0 overflow-y-auto overscroll-contain">
       <div className="mx-auto max-w-3xl space-y-6 p-6 pb-16">
         <header className="space-y-1">
           <h1 className="text-xl font-semibold">Methodology, data sources & limitations</h1>
@@ -126,6 +126,6 @@ export function MethodologyPanel() {
           </ul>
         </section>
       </div>
-    </ScrollArea>
+    </div>
   );
 }

@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Crosshair, ExternalLink, Flag, Search } from "lucide-react";
+import { Crosshair, ExternalLink, Flag, Search, ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 import { fetchEvents, fetchEventsSummary, submitCorrection } from "@/lib/api-client";
 import { useAtlas } from "@/lib/store";
@@ -21,7 +21,7 @@ import { EVENT_TYPE_LABELS } from "@/lib/types";
 import { LAYER_COLOR_BY_EVENT_TYPE_FALLBACK } from "@/components/atlas/event-colors";
 import { formatDateSafe } from "@/lib/geo";
 
-export function EventsPanel({ compact = false }: { compact?: boolean }) {
+export function EventsPanel({ compact = false, onCollapse }: { compact?: boolean; onCollapse?: () => void }) {
   const [type, setType] = useState("all");
   const [kind, setKind] = useState("all");
   const [days, setDays] = useState(365);
@@ -47,10 +47,22 @@ export function EventsPanel({ compact = false }: { compact?: boolean }) {
   const { flyTo, openEvent } = useAtlas();
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="space-y-3 border-b p-4">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="space-y-3 border-b p-3.5 sm:p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">{t("documentedDisasters")}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold">{t("documentedDisasters")}</h2>
+            {onCollapse && (
+              <button
+                onClick={onCollapse}
+                className="hidden h-7 w-7 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground lg:flex"
+                title="Collapse panel"
+                aria-label="Collapse panel"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
             {summaryQ.data && (
               <>
@@ -109,58 +121,56 @@ export function EventsPanel({ compact = false }: { compact?: boolean }) {
         ) : null}
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="p-3">
-          {eventsQ.isLoading && (
-            <div className="space-y-2">
-              {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
-            </div>
-          )}
-          {eventsQ.isError && (
-            <p className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-              Failed to load events: {(eventsQ.error as Error).message}
-            </p>
-          )}
-          {eventsQ.data?.length === 0 && (
-            <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
-              No events match these filters. Try a longer window — imports run on a schedule and the archive grows over time.
-            </p>
-          )}
-          <ul className="space-y-1.5">
-            {filtered.map((e) => (
-              <li key={e.id}>
-                <button
-                  className="w-full rounded-lg border p-2.5 text-left hover:bg-accent/50"
-                  onClick={() => {
-                    openEvent(e);
-                    if (e.lat !== null && e.lng !== null) flyTo(e.lat, e.lng, 6);
-                  }}
-                >
-                  <div className="flex items-start gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13px] font-medium">{e.title}</div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-                        <TypeChip eventType={e.eventType} colorHex={LAYER_COLOR_BY_EVENT_TYPE_FALLBACK[e.eventType]} />
-                        <span>
-                          {formatDateSafe(e.startDate)}
-                          {e.endDate ? ` → ${formatDateSafe(e.endDate)}` : e.kind === "active" ? " (ongoing)" : ""}
-                        </span>
-                        {e.severityLabel || e.severityValue !== null ? (
-                          <span className="font-medium">· {e.severityLabel ?? `${e.severityValue} ${e.severityUnit ?? ""}`.trim()}</span>
-                        ) : null}
-                      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3">
+        {eventsQ.isLoading && (
+          <div className="space-y-2">
+            {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+          </div>
+        )}
+        {eventsQ.isError && (
+          <p className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+            Failed to load events: {(eventsQ.error as Error).message}
+          </p>
+        )}
+        {eventsQ.data?.length === 0 && (
+          <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+            No events match these filters. Try a longer window — imports run on a schedule and the archive grows over time.
+          </p>
+        )}
+        <ul className="space-y-1.5">
+          {filtered.map((e) => (
+            <li key={e.id}>
+              <button
+                className="w-full rounded-lg border p-2.5 text-left hover:bg-accent/50"
+                onClick={() => {
+                  openEvent(e);
+                  if (e.lat !== null && e.lng !== null) flyTo(e.lat, e.lng, 6);
+                }}
+              >
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[13px] font-medium">{e.title}</div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                      <TypeChip eventType={e.eventType} colorHex={LAYER_COLOR_BY_EVENT_TYPE_FALLBACK[e.eventType]} />
+                      <span>
+                        {formatDateSafe(e.startDate)}
+                        {e.endDate ? ` → ${formatDateSafe(e.endDate)}` : e.kind === "active" ? " (ongoing)" : ""}
+                      </span>
+                      {e.severityLabel || e.severityValue !== null ? (
+                        <span className="font-medium">· {e.severityLabel ?? `${e.severityValue} ${e.severityUnit ?? ""}`.trim()}</span>
+                      ) : null}
                     </div>
-                    <VerificationBadge status={e.verificationStatus} />
                   </div>
-                </button>
-              </li>
-            ))}
-          </ul>
-          {filtered.length > 0 && eventsQ.data && eventsQ.data.length >= 500 && (
-            <p className="mt-2 text-center text-[11px] text-muted-foreground">Showing the 500 most recent — refine filters to narrow.</p>
-          )}
-        </div>
-      </ScrollArea>
+                  <VerificationBadge status={e.verificationStatus} />
+                </div>
+              </button>
+            </li>
+          ))}
+        </ul>
+        {filtered.length > 0 && eventsQ.data && eventsQ.data.length >= 500 && (
+          <p className="mt-2 text-center text-[11px] text-muted-foreground">Showing the 500 most recent — refine filters to narrow.</p>
+        )}
+      </div>
     </div>
   );
 }
