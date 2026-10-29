@@ -113,8 +113,8 @@ export function LocationPanel() {
 
   return (
     <>
-      <div className="flex h-full flex-col">
-        <div className="flex items-start gap-2 border-b p-4">
+      <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="shrink-0 flex items-start gap-2 border-b bg-background p-4 z-10">
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-base font-semibold leading-tight">
               {detailQ.data?.location.name ?? loc.name ?? "Selected location"}
@@ -134,7 +134,7 @@ export function LocationPanel() {
           </Button>
         </div>
 
-        <ScrollArea className="flex-1">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
           <div className="space-y-4 p-4">
             {detailQ.isLoading && <LocationSkeleton />}
             {detailQ.isError && (
@@ -205,7 +205,7 @@ export function LocationPanel() {
               </>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </div>
 
       <CorrectionDialog

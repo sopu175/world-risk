@@ -217,7 +217,7 @@ export function AtlasShell() {
       {/* -------------------------------------------------------- overlays */}
       {selectedLocation && (
         <UiSheet open onOpenChange={(v) => !v && useAtlas.getState().clearLocation()}>
-          <UiSheetContent side="right" className="w-full overflow-hidden p-0 sm:max-w-[440px]">
+          <UiSheetContent side="right" className="flex h-full max-h-screen w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-[460px]">
             {/* Radix requires a DialogTitle inside the sheet — the visible header
                 lives in LocationPanel, so expose this one to screen readers only. */}
             <UiSheetTitle className="sr-only">Location details</UiSheetTitle>
