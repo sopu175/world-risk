@@ -73,11 +73,15 @@ Thumbs.db
 *.swp
 *.swo
 
-# AI & Workspace Configs
+# AI, Container & Workspace Configs
 .claude/
 .z-ai-config/
+.zscripts/
 /skills/
 local-*
+Caddyfile
+dev.log
+server.log
 
 # Vercel Deployment Cache
 .vercel/
