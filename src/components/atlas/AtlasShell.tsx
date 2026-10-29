@@ -5,10 +5,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Globe2, Layers3, Map as MapIcon, ScrollText, Moon, Sun, Radio } from "lucide-react";
+import { Globe2, Layers3, Map as MapIcon, ScrollText, Moon, Sun, Radio, Waves } from "lucide-react";
 import { fetchLayers, fetchObservations, fetchEvents, runBootstrap } from "@/lib/api-client";
 import { useAtlas } from "@/lib/store";
 import { MapView } from "@/components/atlas/MapView";
+import { WindyMapView } from "@/components/atlas/WindyMapView";
 import { LayerPanel } from "@/components/atlas/LayerPanel";
 import { LocationPanel } from "@/components/atlas/LocationPanel";
 import { EventsPanel, EventDetailSheet } from "@/components/atlas/EventsPanel";
@@ -75,8 +76,14 @@ export function AtlasShell() {
         </button>
 
         <nav className="ml-4 hidden items-center gap-1 md:flex" aria-label="Main navigation">
-          <NavButton active={view === "map"} onClick={() => setView("map")} icon={<MapIcon className="h-3.5 w-3.5" />} label="Map" />
-          <NavButton active={view === "events"} onClick={() => setView("events")} icon={<Radio className="h-3.5 w-3.5" />} label="Events" />
+          <NavButton active={view === "map"} onClick={() => setView("map")} icon={<MapIcon className="h-3.5 w-3.5" />} label="Atlas Map" />
+          <NavButton
+            active={view === "windy"}
+            onClick={() => setView("windy")}
+            icon={<Waves className="h-3.5 w-3.5 text-teal-500 animate-pulse" />}
+            label="Live Waves & Wind (Windy)"
+          />
+          <NavButton active={view === "events"} onClick={() => setView("events")} icon={<Radio className="h-3.5 w-3.5" />} label="Disaster Events" />
           <NavButton active={view === "about"} onClick={() => setView("about")} icon={<ScrollText className="h-3.5 w-3.5" />} label="Data & Sources" />
         </nav>
 
@@ -126,7 +133,9 @@ export function AtlasShell() {
 
       {/* -------------------------------------------------------------- main */}
       <main className="relative min-h-0 flex-1">
-        {showMap ? (
+        {view === "windy" ? (
+          <WindyMapView />
+        ) : showMap ? (
           <div className="flex h-full">
             <aside className="hidden w-[340px] shrink-0 border-r bg-background lg:block">
               {view === "map" ? (
@@ -136,6 +145,28 @@ export function AtlasShell() {
               )}
             </aside>
             <div className="relative min-w-0 flex-1">
+              {/* Floating Quick Mode Switcher */}
+              <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full border bg-background/95 p-1 shadow-md backdrop-blur">
+                <button
+                  onClick={() => setView("map")}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+                    view === "map" ? "bg-foreground text-background shadow-xs" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <MapIcon className="h-3 w-3" />
+                  <span>Atlas Map</span>
+                </button>
+                <button
+                  onClick={() => setView("windy")}
+                  className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  title="Switch to Windy live animated waves and wind model"
+                >
+                  <Waves className="h-3 w-3 text-teal-500 animate-pulse" />
+                  <span>Live Waves & Wind (Windy)</span>
+                </button>
+              </div>
+
               <MapView
                 layers={layersQ.data ?? []}
                 observations={obsQ.data ?? []}
@@ -213,6 +244,7 @@ function MobileNav() {
   return (
     <div className="flex items-center gap-1 md:hidden">
       <NavButton active={view === "map"} onClick={() => setView("map")} icon={<MapIcon className="h-4 w-4" />} label="" />
+      <NavButton active={view === "windy"} onClick={() => setView("windy")} icon={<Waves className="h-4 w-4 text-teal-500" />} label="" />
       <NavButton active={view === "events"} onClick={() => setView("events")} icon={<Radio className="h-4 w-4" />} label="" />
       <NavButton active={view === "about"} onClick={() => setView("about")} icon={<ScrollText className="h-4 w-4" />} label="" />
     </div>

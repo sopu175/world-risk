@@ -5,7 +5,8 @@
 import { create } from "zustand";
 import type { EventDTO } from "@/lib/types";
 
-export type ViewMode = "map" | "events" | "about";
+export type ViewMode = "map" | "windy" | "events" | "about";
+export type WindyOverlay = "waves" | "wind" | "gust" | "rain" | "temp" | "clouds" | "cams";
 
 export type SelectedLocation = {
   latitude: number;
@@ -24,8 +25,10 @@ type AtlasState = {
   activeLayers: string[];
   flyTarget: FlyTarget | null;
   sessionId: string;
+  windyOverlay: WindyOverlay;
 
   setView: (v: ViewMode) => void;
+  setWindyOverlay: (overlay: WindyOverlay) => void;
   setLocation: (loc: SelectedLocation) => void;
   clearLocation: () => void;
   openEvent: (e: EventDTO) => void;
@@ -53,8 +56,10 @@ export const useAtlas = create<AtlasState>((set, get) => ({
   activeLayers: ["earthquake"],
   flyTarget: null,
   sessionId: typeof window !== "undefined" ? getSessionId() : "ssr",
+  windyOverlay: "waves",
 
   setView: (v) => set({ view: v }),
+  setWindyOverlay: (overlay) => set({ windyOverlay: overlay }),
   setLocation: (loc) => set({ selectedLocation: loc, selectedEvent: null }),
   clearLocation: () => set({ selectedLocation: null }),
   openEvent: (e) => set({ selectedEvent: e, selectedLocation: null, view: "events" }),
