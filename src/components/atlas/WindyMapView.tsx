@@ -170,7 +170,7 @@ export function WindyMapView() {
         <div className="pointer-events-none absolute bottom-3 left-3 z-10 hidden rounded-md border border-white/10 bg-black/75 px-3 py-1.5 text-[11px] text-white/90 backdrop-blur-sm sm:flex sm:items-center sm:gap-2">
           <span className="flex h-2 w-2 rounded-full bg-teal-400 animate-pulse" />
           <span>
-            Live ECMWF animation: {currentOverlayMeta.label} · Timeline slider available at bottom of map
+            {t("navWindy")}: {t(currentOverlayMeta.labelKey)}
           </span>
         </div>
       </div>

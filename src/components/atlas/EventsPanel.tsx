@@ -17,7 +17,7 @@ import { fetchEvents, fetchEventsSummary, submitCorrection } from "@/lib/api-cli
 import { useAtlas } from "@/lib/store";
 import { useTranslation } from "@/lib/i18n";
 import { TypeChip, VerificationBadge, Freshness } from "@/components/atlas/ui-bits";
-import { EVENT_TYPE_LABELS } from "@/lib/types";
+import { EVENT_TYPE_LABELS, getEventTypeLabel } from "@/lib/types";
 import { LAYER_COLOR_BY_EVENT_TYPE_FALLBACK } from "@/components/atlas/event-colors";
 import { formatDateSafe } from "@/lib/geo";
 
@@ -66,55 +66,75 @@ export function EventsPanel({ compact = false, onCollapse }: { compact?: boolean
           <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
             {summaryQ.data && (
               <>
-                <span className="tabular-nums">{summaryQ.data.total} {t("totalEvents")}</span>
-                <span className="font-semibold text-red-600">{summaryQ.data.activeCount} {t("activeEvents")}</span>
+                <span className="tabular-nums">
+                  {summaryQ.data.total} {t("totalEvents")}
+                </span>
+                <span className="font-semibold text-red-600">
+                  {summaryQ.data.activeCount} {t("activeEvents")}
+                </span>
               </>
             )}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <Select value={type} onValueChange={setType}>
-            <SelectTrigger size="sm" aria-label="Filter by hazard type"><SelectValue /></SelectTrigger>
+            <SelectTrigger size="sm" aria-label="Filter by hazard type">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All types</SelectItem>
-              {Object.entries(EVENT_TYPE_LABELS).map(([k, v]) => (
-                <SelectItem key={k} value={k}>{v}</SelectItem>
+              <SelectItem value="all">{t("allHazardTypes")}</SelectItem>
+              {Object.keys(EVENT_TYPE_LABELS).map((k) => (
+                <SelectItem key={k} value={k}>
+                  {getEventTypeLabel(k, isBn)}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Select value={kind} onValueChange={setKind}>
-            <SelectTrigger size="sm" aria-label="Filter by event class"><SelectValue /></SelectTrigger>
+            <SelectTrigger size="sm" aria-label="Filter by event class">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Historical + active</SelectItem>
-              <SelectItem value="active">Active only</SelectItem>
-              <SelectItem value="historical">Historical only</SelectItem>
+              <SelectItem value="all">{t("historicalAndActive")}</SelectItem>
+              <SelectItem value="active">{t("activeEventsOnly")}</SelectItem>
+              <SelectItem value="historical">{t("historicalOnly")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="grid grid-cols-[1fr_auto] gap-2">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t("searchEventsPlaceholder")} className="pl-8" aria-label="Filter events by text" />
+            <Input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder={t("searchEventsPlaceholder")}
+              className="pl-8"
+              aria-label="Filter events by text"
+            />
           </div>
           <Select value={String(days)} onValueChange={(v) => setDays(Number(v))}>
-            <SelectTrigger size="sm" className="w-[110px]" aria-label="Time window"><SelectValue /></SelectTrigger>
+            <SelectTrigger size="sm" className="w-[110px]" aria-label="Time window">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              <SelectItem value="30">30 days</SelectItem>
-              <SelectItem value="90">90 days</SelectItem>
-              <SelectItem value="365">12 months</SelectItem>
-              <SelectItem value="1095">3 years</SelectItem>
+              <SelectItem value="30">{t("days30")}</SelectItem>
+              <SelectItem value="90">{t("days90")}</SelectItem>
+              <SelectItem value="365">{t("months12")}</SelectItem>
+              <SelectItem value="1095">{t("years3")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
         {summaryQ.data?.byType?.length ? (
           <div className="flex flex-wrap gap-1">
-            {summaryQ.data.byType.slice(0, compact ? 6 : 12).map((t) => (
+            {summaryQ.data.byType.slice(0, compact ? 6 : 12).map((typeItem) => (
               <button
-                key={t.eventType}
-                onClick={() => setType(type === t.eventType ? "all" : t.eventType)}
-                className={`rounded-full border px-2 py-0.5 text-[11px] transition-colors ${type === t.eventType ? "border-foreground bg-foreground text-background" : "hover:bg-accent"}`}
+                key={typeItem.eventType}
+                onClick={() => setType(type === typeItem.eventType ? "all" : typeItem.eventType)}
+                className={`rounded-full border px-2 py-0.5 text-[11px] transition-colors ${
+                  type === typeItem.eventType ? "border-foreground bg-foreground text-background" : "hover:bg-accent"
+                }`}
               >
-                {EVENT_TYPE_LABELS[t.eventType] ?? t.eventType} · {t.count}
+                {getEventTypeLabel(typeItem.eventType, isBn)} · {typeItem.count}
               </button>
             ))}
           </div>
@@ -124,17 +144,19 @@ export function EventsPanel({ compact = false, onCollapse }: { compact?: boolean
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3">
         {eventsQ.isLoading && (
           <div className="space-y-2">
-            {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
           </div>
         )}
         {eventsQ.isError && (
           <p className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-            Failed to load events: {(eventsQ.error as Error).message}
+            {t("failedToLoadEvents")}: {(eventsQ.error as Error).message}
           </p>
         )}
         {eventsQ.data?.length === 0 && (
           <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
-            No events match these filters. Try a longer window — imports run on a schedule and the archive grows over time.
+            {t("noEventsMatch")}
           </p>
         )}
         <ul className="space-y-1.5">
@@ -154,10 +176,16 @@ export function EventsPanel({ compact = false, onCollapse }: { compact?: boolean
                       <TypeChip eventType={e.eventType} colorHex={LAYER_COLOR_BY_EVENT_TYPE_FALLBACK[e.eventType]} />
                       <span>
                         {formatDateSafe(e.startDate)}
-                        {e.endDate ? ` → ${formatDateSafe(e.endDate)}` : e.kind === "active" ? " (ongoing)" : ""}
+                        {e.endDate
+                          ? ` → ${formatDateSafe(e.endDate)}`
+                          : e.kind === "active"
+                            ? ` (${isBn ? "চলমান" : "ongoing"})`
+                            : ""}
                       </span>
                       {e.severityLabel || e.severityValue !== null ? (
-                        <span className="font-medium">· {e.severityLabel ?? `${e.severityValue} ${e.severityUnit ?? ""}`.trim()}</span>
+                        <span className="font-medium">
+                          · {e.severityLabel ?? `${e.severityValue} ${e.severityUnit ?? ""}`.trim()}
+                        </span>
                       ) : null}
                     </div>
                   </div>
@@ -168,7 +196,7 @@ export function EventsPanel({ compact = false, onCollapse }: { compact?: boolean
           ))}
         </ul>
         {filtered.length > 0 && eventsQ.data && eventsQ.data.length >= 500 && (
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">Showing the 500 most recent — refine filters to narrow.</p>
+          <p className="mt-2 text-center text-[11px] text-muted-foreground">{t("showing500MostRecent")}</p>
         )}
       </div>
     </div>
@@ -178,6 +206,7 @@ export function EventsPanel({ compact = false, onCollapse }: { compact?: boolean
 // ------------------------------------------------------------------ detail sheet
 export function EventDetailSheet() {
   const { selectedEvent, clearEvent, sessionId } = useAtlas();
+  const { t, isBn } = useTranslation();
   const [corrOpen, setCorrOpen] = useState(false);
   if (!selectedEvent) return null;
   const e = selectedEvent;
@@ -190,60 +219,99 @@ export function EventDetailSheet() {
             <SheetTitle className="leading-snug">{e.title}</SheetTitle>
             <SheetDescription className="flex flex-wrap items-center gap-2">
               <TypeChip eventType={e.eventType} colorHex={LAYER_COLOR_BY_EVENT_TYPE_FALLBACK[e.eventType]} />
-              <span className="font-medium">{e.kind === "active" ? "Active event" : "Historical event"}</span>
+              <span className="font-medium">
+                {e.kind === "active" ? t("activeEvent") : t("historicalEvent")}
+              </span>
               <VerificationBadge status={e.verificationStatus} />
             </SheetDescription>
           </SheetHeader>
           <div className="space-y-4 p-4 pt-0">
             <dl className="grid grid-cols-2 gap-2 text-xs">
               <div className="rounded-lg border p-2.5">
-                <dt className="text-muted-foreground">Start</dt>
+                <dt className="text-muted-foreground">{t("startDate")}</dt>
                 <dd className="font-medium">{formatDateSafe(e.startDate)}</dd>
               </div>
               <div className="rounded-lg border p-2.5">
-                <dt className="text-muted-foreground">End</dt>
-                <dd className="font-medium">{e.endDate ? formatDateSafe(e.endDate) : e.kind === "active" ? "ongoing" : "unknown"}</dd>
+                <dt className="text-muted-foreground">{t("endDate")}</dt>
+                <dd className="font-medium">
+                  {e.endDate
+                    ? formatDateSafe(e.endDate)
+                    : e.kind === "active"
+                      ? t("ongoing")
+                      : t("unknown")}
+                </dd>
               </div>
               <div className="rounded-lg border p-2.5">
-                <dt className="text-muted-foreground">Severity (as reported)</dt>
-                <dd className="font-medium">{e.severityLabel ?? (e.severityValue !== null ? `${e.severityValue} ${e.severityUnit ?? ""}`.trim() : "not reported")}</dd>
+                <dt className="text-muted-foreground">{t("severityLabel")}</dt>
+                <dd className="font-medium">
+                  {e.severityLabel ??
+                    (e.severityValue !== null ? `${e.severityValue} ${e.severityUnit ?? ""}`.trim() : t("notReported"))}
+                </dd>
               </div>
               <div className="rounded-lg border p-2.5">
-                <dt className="text-muted-foreground">Coordinates</dt>
-                <dd className="font-mono font-medium">{e.lat !== null && e.lng !== null ? `${e.lat.toFixed(2)}, ${e.lng.toFixed(2)}` : "—"}</dd>
+                <dt className="text-muted-foreground">{t("coordinatesLabel")}</dt>
+                <dd className="font-mono font-medium">
+                  {e.lat !== null && e.lng !== null ? `${e.lat.toFixed(2)}, ${e.lng.toFixed(2)}` : "—"}
+                </dd>
               </div>
             </dl>
 
             {e.summary && (
               <div>
-                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Summary</h3>
+                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t("summaryLabel")}
+                </h3>
                 <p className="text-[13px] leading-snug">{e.summary}</p>
               </div>
             )}
 
             <div className="rounded-lg border bg-muted/40 p-3">
-              <h3 className="text-xs font-semibold">Source & citation</h3>
+              <h3 className="text-xs font-semibold">{t("sourceAndCitation")}</h3>
               <p className="mt-1 text-[12px] text-muted-foreground">
-                Aggregated by <span className="font-medium text-foreground">{e.sourceName}</span>. The atlas republishes
-                source metadata; verify critical decisions against the original source.
+                {isBn ? (
+                  <>
+                    <span className="font-medium text-foreground">{e.sourceName}</span> দ্বারা সংগৃহীত। অ্যাটলাস
+                    উৎস উপাত্ত প্রকাশ করে; সিদ্ধান্ত গ্রহণের আগে মূল উৎসের সাথে যাচাই করুন।
+                  </>
+                ) : (
+                  <>
+                    Aggregated by <span className="font-medium text-foreground">{e.sourceName}</span>. The atlas
+                    republishes source metadata; verify critical decisions against the original source.
+                  </>
+                )}
               </p>
               {e.sourceUrl && (
-                <a className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium underline" href={e.sourceUrl} target="_blank" rel="noopener noreferrer">
-                  Open original source <ExternalLink className="h-3 w-3" />
+                <a
+                  className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium underline"
+                  href={e.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {t("openOriginalSource")} <ExternalLink className="h-3 w-3" />
                 </a>
               )}
-              {e.sourcePublishedAt && <p className="mt-1 text-[11px] text-muted-foreground">Published: {new Date(e.sourcePublishedAt).toUTCString()}</p>}
+              {e.sourcePublishedAt && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {t("published")}: {new Date(e.sourcePublishedAt).toUTCString()}
+                </p>
+              )}
               <Freshness at={e.startDate} className="mt-1" />
             </div>
 
             <Button variant="outline" size="sm" className="w-full" onClick={() => setCorrOpen(true)}>
-              <Flag className="mr-1.5 h-3.5 w-3.5" /> Report an issue with this event
+              <Flag className="mr-1.5 h-3.5 w-3.5" /> {t("reportEventIssue")}
             </Button>
           </div>
         </SheetContent>
       </Sheet>
 
-      <EventCorrectionDialog open={corrOpen} onOpenChange={setCorrOpen} eventId={e.id} eventLabel={e.title} sessionId={sessionId} />
+      <EventCorrectionDialog
+        open={corrOpen}
+        onOpenChange={setCorrOpen}
+        eventId={e.id}
+        eventLabel={e.title}
+        sessionId={sessionId}
+      />
     </>
   );
 }
@@ -261,22 +329,35 @@ function EventCorrectionDialog({
   eventLabel: string;
   sessionId: string;
 }) {
+  const { t, isBn } = useTranslation();
   const [message, setMessage] = useState("");
   void sessionId;
-  const submit = useMutation({ mutationFn: (payload: { targetType: string; targetId?: string; targetLabel?: string; message: string }) => submitCorrection(payload) });
+  const submit = useMutation({
+    mutationFn: (payload: { targetType: string; targetId?: string; targetLabel?: string; message: string }) =>
+      submitCorrection(payload),
+  });
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Report an event issue</DialogTitle>
+          <DialogTitle>{isBn ? "দুর্যোগের তথ্য ত্রুটি জানান" : "Report an event issue"}</DialogTitle>
           <DialogDescription>{eventLabel}</DialogDescription>
         </DialogHeader>
         <div>
-          <Label htmlFor="evt-corr">What is wrong? *</Label>
-          <Textarea id="evt-corr" value={message} onChange={(ev) => setMessage(ev.target.value)} rows={4} maxLength={2000} placeholder="Describe the problem, ideally with a source link…" />
+          <Label htmlFor="evt-corr">{t("whatIsWrong")}</Label>
+          <Textarea
+            id="evt-corr"
+            value={message}
+            onChange={(ev) => setMessage(ev.target.value)}
+            rows={4}
+            maxLength={2000}
+            placeholder={t("describeProblem")}
+          />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {t("cancel")}
+          </Button>
           <Button
             disabled={message.trim().length < 10 || submit.isPending}
             onClick={() =>
@@ -284,7 +365,7 @@ function EventCorrectionDialog({
                 { targetType: "event", targetId: eventId, targetLabel: eventLabel, message },
                 {
                   onSuccess: () => {
-                    toast.success("Correction submitted for review.");
+                    toast.success(t("correctionSubmitted"));
                     onOpenChange(false);
                     setMessage("");
                   },
@@ -293,7 +374,7 @@ function EventCorrectionDialog({
               )
             }
           >
-            {submit.isPending ? "Submitting…" : "Submit"}
+            {submit.isPending ? t("submitting") : t("submit")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -303,6 +384,7 @@ function EventCorrectionDialog({
 
 export function OpenOnMapButton({ lat, lng, zoom }: { lat: number; lng: number; zoom?: number }) {
   const { flyTo, setView } = useAtlas();
+  const { t } = useTranslation();
   return (
     <Button
       variant="ghost"
@@ -312,7 +394,7 @@ export function OpenOnMapButton({ lat, lng, zoom }: { lat: number; lng: number; 
         flyTo(lat, lng, zoom);
       }}
     >
-      <Crosshair className="mr-1.5 h-3.5 w-3.5" /> Locate on map
+      <Crosshair className="mr-1.5 h-3.5 w-3.5" /> {t("locateOnMap")}
     </Button>
   );
 }

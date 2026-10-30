@@ -1,5 +1,0 @@
-/vendor
-/runtime
-.env
-/web/assets
-*.log

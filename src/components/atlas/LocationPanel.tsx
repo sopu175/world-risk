@@ -233,31 +233,32 @@ function IndicatorOverview({
   wind?: WindData;
   windIndicator?: { available: boolean; valueSummary: string | null; unavailableReason: string | null };
 }) {
+  const { isBn } = useTranslation();
   const windAvail = windIndicator?.available ?? false;
   const windValue = wind?.current ? `${Math.round(wind.current.speedKmh)} km/h` : "—";
   const windSub = wind?.current
     ? `B${wind.current.beaufortB} ${wind.current.beaufortName}${wind.current.gustKmh !== null ? ` · gusts ${Math.round(wind.current.gustKmh)} km/h` : ""}`
     : windAvail
-      ? `annual max ≈ ${wind?.baselineAnnualMaxWindKmh ?? "—"} km/h`
-      : "Wind model unavailable";
+      ? `${isBn ? "বার্ষিক সর্বোচ্চ" : "annual max"} ≈ ${wind?.baselineAnnualMaxWindKmh ?? "—"} km/h`
+      : isBn ? "বায়ু মডেল অনুপলব্ধ" : "Wind model unavailable";
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       <MiniStat
-        label="Quakes M≥4.5 / 10 y"
+        label={isBn ? "ভূমিকম্প (১০ বছর)" : "Quakes M≥4.5 / 10 y"}
         value={quake?.available ? (quake.valueSummary?.split(" ")[0] ?? "—") : "—"}
-        sub={quake?.available ? quake.valueSummary?.match(/max M ([\d.]+)/)?.[0] ?? undefined : "USGS catalog unavailable"}
+        sub={quake?.available ? quake.valueSummary?.match(/max M ([\d.]+)/)?.[0] ?? undefined : isBn ? "USGS ক্যাটালগ অনুপলব্ধ" : "USGS catalog unavailable"}
       />
       <MiniStat
-        label="Hot days / year"
+        label={isBn ? "উষ্ণ দিন / বছর" : "Hot days / year"}
         value={heat?.available ? (heat.valueSummary?.split(" ")[0] ?? "—") : "—"}
-        sub={heat?.available ? heat.valueSummary?.replace(/^\d+(\.\d+)?\s*/, "").slice(0, 44) : "ERA5 unavailable"}
+        sub={heat?.available ? heat.valueSummary?.replace(/^\d+(\.\d+)?\s*/, "").slice(0, 44) : isBn ? "ERA5 অনুপলব্ধ" : "ERA5 unavailable"}
       />
       <MiniStat
-        label="PM2.5 (24 h)"
+        label={isBn ? "PM2.5 (২৪ ঘণ্টা)" : "PM2.5 (24 h)"}
         value={air?.available ? `${air.valueSummary?.match(/PM2\.5 ([\d.]+)/)?.[1] ?? "—"} µg/m³` : "—"}
-        sub={air?.available ? air.valueSummary?.split("— ")[1] ?? undefined : "CAMS unavailable"}
+        sub={air?.available ? air.valueSummary?.split("— ")[1] ?? undefined : isBn ? "CAMS অনুপলব্ধ" : "CAMS unavailable"}
       />
-      <MiniStat label="Wind now" value={windAvail ? windValue : "—"} sub={windSub.slice(0, 44)} />
+      <MiniStat label={isBn ? "বর্তমান বাতাস" : "Wind now"} value={windAvail ? windValue : "—"} sub={windSub.slice(0, 44)} />
     </div>
   );
 }

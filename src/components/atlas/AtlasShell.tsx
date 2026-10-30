@@ -249,7 +249,7 @@ export function AtlasShell() {
       {/* ------------------------------------------------------------- footer */}
       <footer className="shrink-0 border-t bg-background">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-[10.5px] leading-none text-muted-foreground">
-          <span className="font-medium text-foreground/70">Open data:</span>
+          <span className="font-medium text-foreground/70">{locale === "bn" ? "উন্মুক্ত উপাত্ত:" : "Open data:"}</span>
           <a className="hover:text-foreground hover:underline" href="https://earthquake.usgs.gov/earthquakes/feed/" target="_blank" rel="noopener noreferrer">USGS (public domain)</a>
           <span aria-hidden>·</span>
           <a className="hover:text-foreground hover:underline" href="https://eonet.gsfc.nasa.gov/api/v3" target="_blank" rel="noopener noreferrer">NASA EONET (public domain)</a>
@@ -258,7 +258,12 @@ export function AtlasShell() {
           <span aria-hidden>·</span>
           <a className="hover:text-foreground hover:underline" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors · OpenFreeMap</a>
           <span className="ml-auto hidden sm:inline">
-            Area-level indicators — never street-level safety advice. <button className="underline hover:text-foreground" onClick={() => setView("about")}>Read methodology</button>
+            {locale === "bn"
+              ? "এলাকাভিত্তিক নির্দেশক — কোনো নির্দিষ্ট রাস্তার নিরাপত্তা পরামর্শ নয়। "
+              : "Area-level indicators — never street-level safety advice. "}
+            <button className="underline hover:text-foreground" onClick={() => setView("about")}>
+              {locale === "bn" ? "পদ্ধতি পড়ুন" : "Read methodology"}
+            </button>
           </span>
         </div>
       </footer>

@@ -9,7 +9,8 @@ import type {
   Popup as MlPopup,
 } from "maplibre-gl";
 import { escapeHtml, formatCoord, formatDateSafe } from "@/lib/geo";
-import { EVENT_TYPE_LABELS, type EventDTO, type LayerDTO, type ObservationDTO } from "@/lib/types";
+import { EVENT_TYPE_LABELS, getEventTypeLabel, type EventDTO, type LayerDTO, type ObservationDTO } from "@/lib/types";
+import { useTranslation } from "@/lib/i18n";
 import type { FlyTarget, SelectedLocation } from "@/lib/store";
 
 // ---------------------------------------------------------------------------
@@ -211,6 +212,9 @@ export function MapView({
   const popupRef = useRef<MlPopup | null>(null);
   const [ready, setReady] = useState(false);
   const [booting, setBooting] = useState(true);
+  const { isBn } = useTranslation();
+  const isBnRef = useRef(isBn);
+  isBnRef.current = isBn;
 
   const propsRef = useRef({ observations, events, activeLayers, onSelectEvent, onRequestLocation });
   propsRef.current = { observations, events, activeLayers, onSelectEvent, onRequestLocation };
@@ -242,6 +246,7 @@ export function MapView({
       map.on("load", () => {
         if (cancelled) return;
         ensureDataLayers(map);
+        applyMapLanguage(map, isBnRef.current);
         setReady(true);
         setBooting(false);
       });
@@ -249,6 +254,7 @@ export function MapView({
       map.on("styledata", () => {
         if (!map.isStyleLoaded()) return;
         ensureDataLayers(map);
+        applyMapLanguage(map, isBnRef.current);
         pushEq(map, propsRef.current.observations);
         pushWaves(map, propsRef.current.observations);
         pushWind(map, propsRef.current.observations);
@@ -269,6 +275,13 @@ export function MapView({
       setReady(false);
     };
   }, []);
+
+  // Update country and city label language when user switches between EN and বাংলা
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    applyMapLanguage(map, isBn);
+  }, [isBn, ready]);
 
   // ------------------------------------------------------------ data pushes
   useEffect(() => {
@@ -444,19 +457,48 @@ export function MapView({
     });
   }
 
+  function applyMapLanguage(map: MlMap, isBnLang: boolean) {
+    const style = map.getStyle();
+    if (!style || !style.layers) return;
+    const textField = isBnLang
+      ? ["coalesce", ["get", "name:bn"], ["get", "name:en"], ["get", "name"]]
+      : ["coalesce", ["get", "name:en"], ["get", "name:latin"], ["get", "name"]];
+
+    for (const layer of style.layers) {
+      if (layer.type === "symbol" && layer.layout && (layer.layout as Record<string, unknown>)["text-field"]) {
+        if (
+          layer.id.startsWith("eq-") ||
+          layer.id.startsWith("event-") ||
+          layer.id.startsWith("wave-") ||
+          layer.id.startsWith("wind-")
+        ) {
+          continue;
+        }
+        try {
+          map.setLayoutProperty(layer.id, "text-field", textField as never);
+        } catch {
+          // ignore expression mismatches on special internal symbol layers
+        }
+      }
+    }
+  }
+
   function showEqPopup(map: MlMap, lng: number, lat: number, p: Record<string, string | number>) {
     const maplibreglRef = mapLibreCtorRef.current;
     if (!maplibreglRef) return;
     popupRef.current?.remove();
     const mag = typeof p.mag === "number" ? p.mag.toFixed(1) : "—";
     const depth = typeof p.depthKm === "number" ? `${p.depthKm.toFixed(0)} km` : "—";
+    const kicker = isBn ? "ভূমিকম্প · USGS" : "Earthquake · USGS";
+    const depthLabel = isBn ? "গভীরতা" : "depth";
+    const linkText = isBn ? "USGS ইভেন্ট পেজ খুলুন ↗" : "Open USGS event page ↗";
     const html = `
       <div class="wra-popup">
-        <div class="wra-popup-kicker">Earthquake · USGS</div>
+        <div class="wra-popup-kicker">${kicker}</div>
         <div class="wra-popup-title">M ${escapeHtml(String(mag))} — ${escapeHtml(String(p.place))}</div>
-        <div class="wra-popup-meta">${escapeHtml(String(p.magType))} · depth ${escapeHtml(depth)} · ${escapeHtml(formatDateSafe(new Date(Number.isFinite(+p.occurredAt) ? +p.occurredAt : p.occurredAt as string)))}</div>
+        <div class="wra-popup-meta">${escapeHtml(String(p.magType))} · ${depthLabel} ${escapeHtml(depth)} · ${escapeHtml(formatDateSafe(new Date(Number.isFinite(+p.occurredAt) ? +p.occurredAt : p.occurredAt as string)))}</div>
         <div class="wra-popup-meta">${escapeHtml(formatCoord(lat, lng, 2))}</div>
-        ${p.url ? `<a class="wra-popup-link" href="${escapeHtml(String(p.url))}" target="_blank" rel="noopener noreferrer">Open USGS event page ↗</a>` : ""}
+        ${p.url ? `<a class="wra-popup-link" href="${escapeHtml(String(p.url))}" target="_blank" rel="noopener noreferrer">${linkText}</a>` : ""}
       </div>`;
     popupRef.current = new maplibreglRef.Popup({ maxWidth: "270px", closeButton: true })
       .setLngLat([lng, lat])
@@ -469,13 +511,20 @@ export function MapView({
     if (!maplibreglRef) return;
     popupRef.current?.remove();
     const val = typeof p.val === "number" ? p.val : Number(p.val);
+    const kicker = isBn ? "সমুদ্র তরঙ্গ · ওপেন-মেটিও" : "Ocean waves · ECMWF WAM via Open-Meteo";
+    const title = isBn
+      ? `তাৎপর্যপূর্ণ তরঙ্গের উচ্চতা ${escapeHtml(String(Number.isFinite(val) ? val.toFixed(1) : "—"))} মিটার`
+      : `Significant wave height ${escapeHtml(String(Number.isFinite(val) ? val.toFixed(1) : "—"))} m`;
+    const seaState = isBn ? "সমুদ্রের অবস্থা" : "Sea state";
+    const updated = isBn ? "হালনাগাদ" : "updated";
+    const notice = isBn ? "~২৫ কিমি মডেল গ্রিড — কোনো বয় রিডিং নয়" : "Grid sample of a ~25 km model — not a buoy reading";
     const html = `
       <div class="wra-popup">
-        <div class="wra-popup-kicker">Ocean waves · ECMWF WAM via Open-Meteo</div>
-        <div class="wra-popup-title">Significant wave height ${escapeHtml(String(Number.isFinite(val) ? val.toFixed(1) : "—"))} m</div>
-        ${p.severity ? `<div class="wra-popup-meta">Sea state: ${escapeHtml(String(p.severity))} (Douglas scale)</div>` : ""}
-        <div class="wra-popup-meta">${escapeHtml(formatCoord(lat, lng, 1))} · updated ${escapeHtml(formatDateSafe(new Date(Number.isFinite(+p.occurredAt) ? +p.occurredAt : (p.occurredAt as string))))}</div>
-        <div class="wra-popup-meta">Grid sample of a ~25 km model — not a buoy reading</div>
+        <div class="wra-popup-kicker">${kicker}</div>
+        <div class="wra-popup-title">${title}</div>
+        ${p.severity ? `<div class="wra-popup-meta">${seaState}: ${escapeHtml(String(p.severity))}</div>` : ""}
+        <div class="wra-popup-meta">${escapeHtml(formatCoord(lat, lng, 1))} · ${updated} ${escapeHtml(formatDateSafe(new Date(Number.isFinite(+p.occurredAt) ? +p.occurredAt : (p.occurredAt as string))))}</div>
+        <div class="wra-popup-meta">${notice}</div>
       </div>`;
     popupRef.current = new maplibreglRef.Popup({ maxWidth: "270px", closeButton: true })
       .setLngLat([lng, lat])
@@ -488,13 +537,19 @@ export function MapView({
     if (!maplibreglRef) return;
     popupRef.current?.remove();
     const val = typeof p.val === "number" ? p.val : Number(p.val);
+    const kicker = isBn ? "বাতাস ও দমকা হাওয়া · ওপেন-মেটিও" : "Wind &amp; gusts · ECMWF/GFS via Open-Meteo";
+    const title = isBn
+      ? `বাতাস ${escapeHtml(String(Number.isFinite(val) ? Math.round(val) : "—"))} কিমি/ঘণ্টা`
+      : `Wind ${escapeHtml(String(Number.isFinite(val) ? Math.round(val) : "—"))} km/h`;
+    const updated = isBn ? "হালনাগাদ" : "updated";
+    const notice = isBn ? "~১১ কিমি মডেল গ্রিড — স্টেশন রিডিং নয়" : "Grid sample of an ~11 km model — not a station reading";
     const html = `
       <div class="wra-popup">
-        <div class="wra-popup-kicker">Wind &amp; gusts · ECMWF/GFS via Open-Meteo</div>
-        <div class="wra-popup-title">Wind ${escapeHtml(String(Number.isFinite(val) ? Math.round(val) : "—"))} km/h</div>
+        <div class="wra-popup-kicker">${kicker}</div>
+        <div class="wra-popup-title">${title}</div>
         ${p.severity ? `<div class="wra-popup-meta">${escapeHtml(String(p.severity))} (Beaufort scale)</div>` : ""}
-        <div class="wra-popup-meta">${escapeHtml(formatCoord(lat, lng, 1))} · updated ${escapeHtml(formatDateSafe(new Date(Number.isFinite(+p.occurredAt) ? +p.occurredAt : (p.occurredAt as string))))}</div>
-        <div class="wra-popup-meta">Grid sample of an ~11 km model — not a station reading</div>
+        <div class="wra-popup-meta">${escapeHtml(formatCoord(lat, lng, 1))} · ${updated} ${escapeHtml(formatDateSafe(new Date(Number.isFinite(+p.occurredAt) ? +p.occurredAt : (p.occurredAt as string))))}</div>
+        <div class="wra-popup-meta">${notice}</div>
       </div>`;
     popupRef.current = new maplibreglRef.Popup({ maxWidth: "270px", closeButton: true })
       .setLngLat([lng, lat])
@@ -506,20 +561,27 @@ export function MapView({
     const maplibreglRef = mapLibreCtorRef.current;
     if (!maplibreglRef) return;
     popupRef.current?.remove();
+    const typeLabel = getEventTypeLabel(dto.eventType, isBn);
+    const activeLabel = isBn ? "সক্রিয়" : "ACTIVE";
+    const ongoingLabel = isBn ? " (চলমান)" : " (ongoing)";
+    const dateUnknown = isBn ? "তারিখ অজ্ঞাত" : "date unknown";
     const dates =
       dto.startDate && dto.endDate
         ? `${formatDateSafe(dto.startDate)} → ${formatDateSafe(dto.endDate)}`
         : dto.startDate
-          ? `${formatDateSafe(dto.startDate)}${dto.kind === "active" ? " (ongoing)" : ""}`
-          : "date unknown";
+          ? `${formatDateSafe(dto.startDate)}${dto.kind === "active" ? ongoingLabel : ""}`
+          : dateUnknown;
+    const sevLabel = isBn ? "তীব্রতা" : "Severity";
+    const btnLabel = isBn ? "বিস্তারিত ও উৎস দেখুন" : "Open details & sources";
+    const sourceLabel = isBn ? "উৎস ↗" : "Source ↗";
     const html = `
       <div class="wra-popup">
-        <div class="wra-popup-kicker">${escapeHtml(EVENT_TYPE_LABELS[dto.eventType] ?? dto.eventType)} · ${escapeHtml(dto.sourceName)}${dto.kind === "active" ? " · <span class='wra-active-dot'>ACTIVE</span>" : ""}</div>
+        <div class="wra-popup-kicker">${escapeHtml(typeLabel)} · ${escapeHtml(dto.sourceName)}${dto.kind === "active" ? ` · <span class='wra-active-dot'>${activeLabel}</span>` : ""}</div>
         <div class="wra-popup-title">${escapeHtml(dto.title)}</div>
         <div class="wra-popup-meta">${escapeHtml(dates)}</div>
-        ${dto.severityLabel || dto.severityValue !== null ? `<div class="wra-popup-meta">Severity: ${escapeHtml(dto.severityLabel ?? `${dto.severityValue ?? "?"} ${dto.severityUnit ?? ""}`.trim())}</div>` : ""}
-        ${dto.sourceUrl ? `<a class="wra-popup-link" href="${escapeHtml(dto.sourceUrl)}" target="_blank" rel="noopener noreferrer">Source ↗</a>` : ""}
-        <button class="wra-popup-btn" data-open-event>Open details & sources</button>
+        ${dto.severityLabel || dto.severityValue !== null ? `<div class="wra-popup-meta">${sevLabel}: ${escapeHtml(dto.severityLabel ?? `${dto.severityValue ?? "?"} ${dto.severityUnit ?? ""}`.trim())}</div>` : ""}
+        ${dto.sourceUrl ? `<a class="wra-popup-link" href="${escapeHtml(dto.sourceUrl)}" target="_blank" rel="noopener noreferrer">${sourceLabel}</a>` : ""}
+        <button class="wra-popup-btn" data-open-event>${btnLabel}</button>
       </div>`;
     const popup = new maplibreglRef.Popup({ maxWidth: "280px", closeButton: true })
       .setLngLat([lng, lat])
@@ -547,7 +609,7 @@ export function MapView({
       <div ref={containerRef} className="h-full w-full" aria-label="Interactive global hazard map" role="application" />
       {booting && (
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-md bg-background/90 px-4 py-2 text-sm text-muted-foreground shadow-sm border">
-          Loading map…
+          {isBn ? "মানচিত্র লোড হচ্ছে…" : "Loading map…"}
         </div>
       )}
     </div>

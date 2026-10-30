@@ -1,6 +1,5 @@
 // Shared DTO contracts between the REST API and the frontend.
-// The same contracts are implemented by the production Yii2 backend
-// (see backend-yii2/) and documented in docs/API.md.
+// Documented in docs/API.md.
 
 export type SourceRef = {
   name: string;
@@ -202,3 +201,21 @@ export const EVENT_TYPE_LABELS: Record<string, string> = {
   volcano: "Volcano",
   other: "Other",
 };
+
+export const EVENT_TYPE_LABELS_BN: Record<string, string> = {
+  earthquake: "ভূমিকম্প",
+  flood: "বন্যা",
+  extreme_heat: "তীব্র তাপপ্রবাহ",
+  cyclone: "ঘূর্ণিঝড় ও তীব্র ঝড়",
+  drought: "খরা",
+  wildfire: "দাবানল",
+  landslide: "ভূমিধস",
+  air_quality: "বায়ুর মান",
+  volcano: "আগ্নেয়গিরি",
+  other: "অন্যান্য",
+};
+
+export function getEventTypeLabel(eventType: string, isBn: boolean): string {
+  if (isBn) return EVENT_TYPE_LABELS_BN[eventType] ?? EVENT_TYPE_LABELS[eventType] ?? eventType;
+  return EVENT_TYPE_LABELS[eventType] ?? eventType;
+}
